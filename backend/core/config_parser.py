@@ -1,34 +1,34 @@
+from __future__ import annotations
+
 import json
 from pathlib import Path
-from typing import Optional
-
-CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.json"
+from typing import Any, Dict
 
 
-def load_config() -> dict:
-    """Load the full configuration from config.json."""
-    if not CONFIG_PATH.exists():
+def load_config() -> Dict[str, Any]:
+    """
+    Loads backend/config.json. Returns {} on any error.
+    """
+    config_path = Path(__file__).resolve().parents[1] / "config.json"
+    try:
+        raw = config_path.read_text(encoding="utf-8")
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return data
+    except Exception:
         return {}
-    with open(CONFIG_PATH, "r") as f:
-        return json.load(f)
+    return {}
 
 
-def get_tool_config(tool_name: str) -> Optional[dict]:
+def get_config_value(path: str, default: Any = None) -> Any:
     """
-    Return the configuration for a specific tool, or None if not found.
-    Example return: {"required_version": "3.10.0", "cmd": ["python", "--version"]}
+    Fetch nested config value using dotted-path (e.g. "scan.max_workers").
     """
-    config = load_config()
-    return config.get("tools", {}).get(tool_name.lower())
+    data = load_config()
+    cur: Any = data
+    for part in path.split("."):
+        if not isinstance(cur, dict) or part not in cur:
+            return default
+        cur = cur[part]
+    return cur
 
-
-def get_scan_config() -> dict:
-    """Return the scan configuration section."""
-    config = load_config()
-    return config.get("scan", {})
-
-
-def get_server_config() -> dict:
-    """Return the server configuration section."""
-    config = load_config()
-    return config.get("server", {})

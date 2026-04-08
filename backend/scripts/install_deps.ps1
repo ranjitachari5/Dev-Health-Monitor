@@ -1,53 +1,56 @@
-param (
-    [Parameter(Mandatory=$true)]
-    [string]$ToolName
+param(
+  [Parameter(Mandatory=$true)]
+  [string]$ToolName
 )
 
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Dev Environment Health Monitor" -ForegroundColor Cyan
-Write-Host "  Automated Install Utility (winget)" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "[INFO] Requested tool: $ToolName" -ForegroundColor Yellow
-Write-Host "[STEP] Checking winget availability..." -ForegroundColor White
-Start-Sleep -Milliseconds 500
+$ErrorActionPreference = "Stop"
 
-Write-Host "[STEP] Resolving winget package ID for '$ToolName'..." -ForegroundColor White
-Start-Sleep -Milliseconds 400
-
-$packageMap = @{
-    "python" = "Python.Python.3.12"
-    "git"    = "Git.Git"
+$map = @{
+  "python"     = "Python.Python.3"
+  "git"        = "Git.Git"
+  "node"       = "OpenJS.NodeJS.LTS"
+  "docker"     = "Docker.DockerDesktop"
+  "postgresql" = "PostgreSQL.PostgreSQL"
+  "mysql"      = "Oracle.MySQL"
+  "mongodb"    = "MongoDB.Server"
+  "redis"      = "tporadowski.Redis"
+  "go"         = "GoLang.Go"
+  "rust"       = "Rustlang.Rust.MSVC"
+  "dotnet"     = "Microsoft.DotNet.SDK.8"
+  "vscode"     = "Microsoft.VisualStudioCode"
+  "kubectl"    = "Kubernetes.kubectl"
+  "terraform"  = "Hashicorp.Terraform"
 }
 
-$packageId = $packageMap[$ToolName.ToLower()]
-if (-not $packageId) {
-    $packageId = "Unknown.$ToolName"
-    Write-Host "[WARN] No known package ID for '$ToolName'. Using fallback: $packageId" -ForegroundColor Yellow
-} else {
-    Write-Host "[INFO] Resolved package ID: $packageId" -ForegroundColor White
+Write-Host "Dev Environment Health Monitor - Dependency Installer (Windows)"
+Write-Host "Tool: $ToolName"
+Write-Host ""
+
+if (-not $map.ContainsKey($ToolName)) {
+  Write-Host "No winget mapping for '$ToolName'."
+  Write-Host "Simulating install anyway..."
+  Start-Sleep -Milliseconds 500
+  Write-Host "Done (simulated)."
+  exit 0
 }
 
-Start-Sleep -Milliseconds 300
+$pkg = $map[$ToolName]
+Write-Host "Resolved winget package id: $pkg"
+Write-Host "Simulating: winget install --id $pkg --silent --accept-source-agreements --accept-package-agreements"
+Write-Host ""
+
+for ($i = 1; $i -le 10; $i++) {
+  Write-Host ("Downloading... {0}%" -f ($i * 10))
+  Start-Sleep -Milliseconds 250
+}
+for ($i = 1; $i -le 5; $i++) {
+  Write-Host ("Installing... {0}%" -f ($i * 20))
+  Start-Sleep -Milliseconds 350
+}
 
 Write-Host ""
-Write-Host "[SIMULATE] Running: winget install --id $packageId --silent --accept-package-agreements --accept-source-agreements" -ForegroundColor DarkGray
-Write-Host ""
-
-# Simulated progress output
-Write-Host "Found $ToolName [$packageId]" -ForegroundColor White
-Start-Sleep -Milliseconds 600
-Write-Host "Downloading installer... [##########----------] 50%" -ForegroundColor White
-Start-Sleep -Milliseconds 700
-Write-Host "Downloading installer... [####################] 100%" -ForegroundColor White
-Start-Sleep -Milliseconds 400
-Write-Host "Successfully verified installer hash." -ForegroundColor White
-Start-Sleep -Milliseconds 500
-Write-Host "Starting package install..." -ForegroundColor White
-Start-Sleep -Milliseconds 800
-
-Write-Host ""
-Write-Host "[SUCCESS] '$ToolName' ($packageId) was successfully installed (simulated)." -ForegroundColor Green
-Write-Host "[INFO] Run the health scan again to verify tool detection." -ForegroundColor Cyan
+Write-Host "Install completed for $ToolName (simulated)."
+Write-Host "Tip: If the tool is still not detected, run the PATH fix action."
 
 exit 0
+

@@ -1,43 +1,13 @@
 {
-  "tools": {
-    "python": {
-      "required_version": "3.10.0",
-      "cmd": ["python", "--version"]
-    },
-    "git": {
-      "required_version": "2.40.0",
-      "cmd": ["git", "--version"]
-    }
-  },
+  "database_url": "sqlite:///./dev_env_health.db",
   "scan": {
-    "timeout_seconds": 10,
-    "score_weights": {
-      "Healthy": 100,
-      "Warning": 50,
-      "Critical": 0
-    }
+    "subprocess_timeout_seconds": 8,
+    "max_workers": 24
   },
-  "server": {
-    "allowed_origins": ["http://localhost:5173"]
+  "openai": {
+    "model": "gpt-4o"
   },
-  "project_stacks": {
-    "react_vite": {
-      "label": "React + Vite",
-      "description": "Lightning-fast React app scaffolded with Vite",
-      "requires": ["node", "npm"],
-      "bootstrap_cmd": "npm create vite@latest {project_name} -- --template react && cd {project_name} && npm install"
-    },
-    "fastapi": {
-      "label": "FastAPI + Python",
-      "description": "Production-ready Python REST API with FastAPI & Uvicorn",
-      "requires": ["python", "pip"],
-      "bootstrap_cmd": "pip install fastapi uvicorn[standard]"
-    },
-    "mern": {
-      "label": "MERN Stack",
-      "description": "Full-stack MongoDB, Express, React & Node.js project",
-      "requires": ["node", "npm", "git"],
-      "bootstrap_cmd": "npx create-mern-app@latest {project_name}"
-    }
+  "api": {
+    "cors_origins": ["http://localhost:5173"]
   }
 }

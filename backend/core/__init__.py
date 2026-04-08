@@ -1,1 +1,2 @@
-# Makes 'core' a Python package — required for relative imports to work.
+__all__ = []
+

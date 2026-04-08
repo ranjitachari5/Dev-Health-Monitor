@@ -1,67 +1,94 @@
+from __future__ import annotations
+
+import platform as _platform
 import subprocess
 from pathlib import Path
+from typing import Dict, List, Tuple
 
-SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
+
+def _normalize_platform(system_name: str) -> str:
+    s = (system_name or "").strip()
+    if s.lower().startswith("win"):
+        return "windows"
+    if s.lower() in {"darwin", "mac", "macos"}:
+        return "mac"
+    if s.lower().startswith("linux"):
+        return "linux"
+    return "unknown"
 
 
-def trigger_fix(tool_name: str, fix_type: str) -> dict:
-    """
-    Execute the appropriate PowerShell fix script for a given tool.
+def detect_platform() -> str:
+    return _normalize_platform(_platform.system())
 
-    Args:
-        tool_name: The name of the tool to fix (e.g., "python", "git").
-        fix_type: Either "install" or "path".
 
-    Returns:
-        A dict with 'success' (bool), 'stdout', and 'stderr' fields.
-    """
-    script_map = {
-        "install": SCRIPTS_DIR / "install_deps.ps1",
-        "path": SCRIPTS_DIR / "fix_path_vars.ps1",
-    }
-
-    script_path = script_map.get(fix_type)
-    if not script_path:
-        return {
-            "success": False,
-            "stdout": "",
-            "stderr": f"Unknown fix_type '{fix_type}'. Must be 'install' or 'path'.",
-        }
-
-    if not script_path.exists():
-        return {
-            "success": False,
-            "stdout": "",
-            "stderr": f"Script not found at path: {script_path}",
-        }
-
+def _run(cmd: List[str], cwd: Path) -> Tuple[int, str, str]:
     try:
-        result = subprocess.run(
-            [
-                "powershell.exe",
-                "-ExecutionPolicy", "Bypass",
-                "-File", str(script_path),
-                tool_name,
-            ],
+        proc = subprocess.run(
+            cmd,
+            cwd=str(cwd),
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=60,
+            check=False,
         )
+        return proc.returncode, proc.stdout or "", proc.stderr or ""
+    except Exception as e:
+        return 1, "", str(e)
+
+
+def trigger_fix(tool_name: str, fix_type: str, platform: str) -> Dict:
+    """
+    Runs platform-specific fix scripts.
+    fix_type: "install" | "path" | "update"
+    """
+    plat = platform or detect_platform()
+    scripts_dir = Path(__file__).resolve().parents[1] / "scripts"
+
+    if fix_type not in {"install", "path", "update"}:
         return {
-            "success": result.returncode == 0,
-            "stdout": result.stdout.strip(),
-            "stderr": result.stderr.strip(),
+            "success": False,
+            "stdout": "",
+            "stderr": f"Invalid fix_type: {fix_type}",
+            "command_executed": "",
         }
 
-    except FileNotFoundError:
+    # For now, "update" maps to "install" script flow.
+    effective_fix = "install" if fix_type in {"install", "update"} else "path"
+
+    if plat == "windows":
+        script = scripts_dir / ("install_deps.ps1" if effective_fix == "install" else "fix_path_vars.ps1")
+        cmd = [
+            "powershell",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(script),
+            "-ToolName",
+            tool_name,
+        ]
+        rc, out, err = _run(cmd, cwd=scripts_dir)
         return {
-            "success": False,
-            "stdout": "",
-            "stderr": "powershell.exe not found. Are you running on Windows?",
+            "success": rc == 0,
+            "stdout": out,
+            "stderr": err,
+            "command_executed": " ".join(cmd),
         }
-    except subprocess.TimeoutExpired:
+
+    if plat in {"mac", "linux"}:
+        script = scripts_dir / ("install_deps.sh" if effective_fix == "install" else "fix_path_vars.sh")
+        cmd = ["bash", str(script), tool_name]
+        rc, out, err = _run(cmd, cwd=scripts_dir)
         return {
-            "success": False,
-            "stdout": "",
-            "stderr": "PowerShell script timed out after 30 seconds.",
+            "success": rc == 0,
+            "stdout": out,
+            "stderr": err,
+            "command_executed": " ".join(cmd),
         }
+
+    return {
+        "success": False,
+        "stdout": "",
+        "stderr": f"Unsupported platform: {plat}",
+        "command_executed": "",
+    }
+
