@@ -5,16 +5,16 @@ import os
 import re
 from typing import Any, Dict, List, Optional
 
-from openai import OpenAI
+from groq import Groq
 
 from .config_parser import get_config_value
 
 
-def _get_client() -> Optional[OpenAI]:
-    api_key = os.getenv("OPENAI_API_KEY")
+def _get_client() -> Optional[Groq]:
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         return None
-    return OpenAI(api_key=api_key)
+    return Groq(api_key=api_key)
 
 
 def _extract_json_object(text: str) -> Optional[str]:
@@ -34,19 +34,19 @@ def analyze_project(user_description: str, scan_results: List[Dict[str, Any]]) -
     client = _get_client()
     if client is None:
         return {
-            "error": "OPENAI_API_KEY is missing. Set it in backend/.env or your environment.",
+            "error": "GROQ_API_KEY is missing. Set it in backend/.env or your environment.",
             "required_tools": [],
             "version_requirements": {},
             "missing_tools": [],
             "outdated_tools": [],
-            "health_summary": "AI analysis unavailable because OPENAI_API_KEY is not configured.",
-            "critical_issues": ["Missing OPENAI_API_KEY"],
+            "health_summary": "AI analysis unavailable because GROQ_API_KEY is not configured.",
+            "critical_issues": ["Missing GROQ_API_KEY"],
             "recommendations": [
-                "Create backend/.env with OPENAI_API_KEY=... and restart the server."
+                "Create backend/.env with GROQ_API_KEY=... and restart the server."
             ],
         }
 
-    model = str(get_config_value("openai.model", "gpt-4o") or "gpt-4o")
+    model = str(get_config_value("groq.model", "llama3-8b-8192") or "llama3-8b-8192")
 
     system_prompt = (
         "You are a senior DevOps engineer. A developer has described their project. "
@@ -106,14 +106,14 @@ def analyze_project(user_description: str, scan_results: List[Dict[str, Any]]) -
         }
     except Exception as e:
         return {
-            "error": f"OpenAI call failed: {e}",
+            "error": f"Groq call failed: {e}",
             "required_tools": [],
             "version_requirements": {},
             "missing_tools": [],
             "outdated_tools": [],
-            "health_summary": "AI analysis unavailable due to an OpenAI error.",
-            "critical_issues": ["OpenAI request failed"],
-            "recommendations": ["Verify network access and OPENAI_API_KEY, then retry."],
+            "health_summary": "AI analysis unavailable due to a Groq error.",
+            "critical_issues": ["Groq request failed"],
+            "recommendations": ["Verify network access and GROQ_API_KEY, then retry."],
         }
 
 
@@ -124,11 +124,11 @@ def get_install_command(tool_name: str, platform: str) -> Dict[str, Any]:
             "tool": tool_name,
             "platform": platform,
             "command": "",
-            "notes": "OPENAI_API_KEY is missing. Set it in backend/.env or your environment.",
-            "error": "Missing OPENAI_API_KEY",
+            "notes": "GROQ_API_KEY is missing. Set it in backend/.env or your environment.",
+            "error": "Missing GROQ_API_KEY",
         }
 
-    model = str(get_config_value("openai.model", "gpt-4o") or "gpt-4o")
+    model = str(get_config_value("groq.model", "llama3-8b-8192") or "llama3-8b-8192")
     prompt = (
         f"What is the exact terminal command to install {tool_name} on {platform}? "
         "Return JSON only:\n"
@@ -182,7 +182,7 @@ def get_install_command(tool_name: str, platform: str) -> Dict[str, Any]:
             "tool": tool_name,
             "platform": platform,
             "command": "",
-            "notes": "OpenAI request failed.",
+            "notes": "Groq request failed.",
             "error": str(e),
         }
 

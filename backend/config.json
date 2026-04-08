@@ -4,8 +4,8 @@
     "subprocess_timeout_seconds": 8,
     "max_workers": 24
   },
-  "openai": {
-    "model": "gpt-4o"
+  "groq": {
+    "model": "llama3-8b-8192"
   },
   "api": {
     "cors_origins": ["http://localhost:5173"]
