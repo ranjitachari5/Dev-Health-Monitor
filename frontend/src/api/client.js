@@ -51,4 +51,36 @@ export const fixTool = async (toolName, fixType = 'install') => {
   return res.data
 }
 
+// ---------------------------------------------------------------------------
+// Smart Project Bootstrapper
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /api/test-env
+ * Check if the current environment has all prerequisites for the given stack.
+ * @param {string} stackName  e.g. "react_vite" | "fastapi" | "mern"
+ * @returns {Promise<object>} readiness report with per-tool check results
+ */
+export const testStackEnvironment = async (stackName) => {
+  const res = await apiClient.post('/api/test-env', { stack: stackName })
+  return res.data
+}
+
+/**
+ * POST /api/build-stack
+ * Bootstrap a new project scaffold for the given stack.
+ * Uses a longer timeout (300 s) because npm/pip downloads can be slow.
+ * @param {string} stackName   e.g. "react_vite"
+ * @param {string} projectName Name for the new project directory
+ * @returns {Promise<object>}  { success, stdout, stderr, ... }
+ */
+export const bootstrapProject = async (stackName, projectName) => {
+  const res = await apiClient.post(
+    '/api/build-stack',
+    { stack: stackName, project_name: projectName },
+    { timeout: 300_000 },   // 5-minute timeout for heavy scaffolding
+  )
+  return res.data
+}
+
 export default apiClient

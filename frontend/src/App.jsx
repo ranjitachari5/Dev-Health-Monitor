@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import HealthScore from './components/HealthScore'
 import IssueList from './components/IssueList'
 import ActionButton from './components/ActionButton'
+import StackSelector from './components/StackSelector'
 import { runScan } from './api/client'
 
 const MOCK_TOOLS = [
@@ -122,6 +123,24 @@ export default function App() {
             </div>
           </motion.div>
         )}
+
+        {/* ── Smart Project Bootstrapper ─────────────────────────────── */}
+        <motion.div
+          className="mt-8"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+        >
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex-1 h-px bg-white/[0.05]" />
+            <span className="font-mono text-[10px] tracking-[0.25em] text-slate-700 uppercase">
+              project bootstrapper
+            </span>
+            <div className="flex-1 h-px bg-white/[0.05]" />
+          </div>
+          <StackSelector />
+        </motion.div>
+
       </div>
     </div>
   )

@@ -19,5 +19,25 @@
   },
   "server": {
     "allowed_origins": ["http://localhost:5173"]
+  },
+  "project_stacks": {
+    "react_vite": {
+      "label": "React + Vite",
+      "description": "Lightning-fast React app scaffolded with Vite",
+      "requires": ["node", "npm"],
+      "bootstrap_cmd": "npm create vite@latest {project_name} -- --template react && cd {project_name} && npm install"
+    },
+    "fastapi": {
+      "label": "FastAPI + Python",
+      "description": "Production-ready Python REST API with FastAPI & Uvicorn",
+      "requires": ["python", "pip"],
+      "bootstrap_cmd": "pip install fastapi uvicorn[standard]"
+    },
+    "mern": {
+      "label": "MERN Stack",
+      "description": "Full-stack MongoDB, Express, React & Node.js project",
+      "requires": ["node", "npm", "git"],
+      "bootstrap_cmd": "npx create-mern-app@latest {project_name}"
+    }
   }
 }
