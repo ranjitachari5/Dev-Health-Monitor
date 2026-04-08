@@ -2,38 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
-  .bg-grid {
-    background-size: 40px 40px;
-    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-  }
-
-  .text-gradient {
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-image: linear-gradient(to right, #22d3ee, #a78bfa);
-  }
-
-  .scanline {
-    background: linear-gradient(
-      to bottom,
-      transparent 0%,
-      rgba(34, 211, 238, 0.2) 10%,
-      transparent 100%
-    );
-    animation: scan 4s linear infinite;
-  }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-@keyframes scan {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
+html, body, #root {
+  width: 100%;
+  height: 100%;
 }
 
 body {
-  margin: 0;
-  background-color: #0a0f1c;
-  color: #f1f5f9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #0a0a0f;
+  color: #f8f8ff;
+  overflow-x: hidden;
+}
+
+code {
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Button reset */
+button {
+  cursor: pointer;
+  outline: none;
+}
+
+/* Input reset */
+input, textarea, select {
+  font-family: inherit;
+}
+
+@layer components {
+  .glass {
+    @apply backdrop-blur-md bg-white/10 border border-white/20;
+  }
 }
