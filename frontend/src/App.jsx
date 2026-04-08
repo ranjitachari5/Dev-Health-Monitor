@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import HealthScore from './components/HealthScore'
 import IssueList from './components/IssueList'
 import ActionButton from './components/ActionButton'
-import { runScan, getReport } from './api/client'
+import { runScan } from './api/client'
 
 const MOCK_TOOLS = [
   { name: 'Node.js', version: 'v20.11.0', status: 'ok' },
@@ -48,11 +48,9 @@ export default function App() {
     setIsLoading(true)
     showStatus('Initializing system scan...', 'info', 0)
     try {
-      await runScan()
-      showStatus('Scan complete. Fetching report...', 'info', 0)
-      const data = await getReport()
+      const data = await runScan()
       setReport(data); setHasScanned(true)
-      showStatus('Report generated successfully.', 'success')
+      showStatus('Scan complete. Report generated successfully.', 'success')
     } catch (err) {
       console.warn('[Demo Mode] Backend offline — using mock data.')
       showStatus('Demo mode: backend offline. Showing mock data.', 'info')

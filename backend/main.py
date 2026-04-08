@@ -19,7 +19,7 @@ allowed_origins = server_config.get("allowed_origins", ["http://localhost:5173"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -81,4 +81,4 @@ def fix_tool(
 if __name__ == "__main__":
     import uvicorn
     # Defaults to port 8000 but can be changed here
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
