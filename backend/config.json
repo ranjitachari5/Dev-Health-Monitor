@@ -1,0 +1,23 @@
+{
+  "tools": {
+    "python": {
+      "required_version": "3.10.0",
+      "cmd": ["python", "--version"]
+    },
+    "git": {
+      "required_version": "2.40.0",
+      "cmd": ["git", "--version"]
+    }
+  },
+  "scan": {
+    "timeout_seconds": 10,
+    "score_weights": {
+      "Healthy": 100,
+      "Warning": 50,
+      "Critical": 0
+    }
+  },
+  "server": {
+    "allowed_origins": ["http://localhost:5173"]
+  }
+}
