@@ -1,184 +1,101 @@
-import React, { useState } from 'react';
-import {
-  Code2,
-  Braces,
-  GitBranch,
-  Box,
-  Package,
-  Database,
-  Cloud,
-  Terminal,
-  ChevronDown,
-  AlertCircle
-} from 'lucide-react';
-import { ToolHealth } from '../types/index';
-import { TerminalOutput } from './TerminalOutput';
+import React from 'react';
+import type { ToolCategory, ToolResult } from '../types';
 
-interface ToolCardProps {
-  tool: ToolHealth;
-  onFix: (toolName: string, fixType: 'install' | 'path') => Promise<void>;
+const VALID_CATEGORIES: ToolCategory[] = [
+  'runtime',
+  'package_manager',
+  'database',
+  'devtool',
+  'container',
+  'language',
+];
+
+function normalizeCategory(c: string): ToolCategory {
+  return VALID_CATEGORIES.includes(c as ToolCategory) ? (c as ToolCategory) : 'devtool';
 }
 
-const getToolIcon = (toolName: string) => {
-  const name = toolName.toLowerCase();
-  if (name.includes('python')) return Code2;
-  if (name.includes('node')) return Braces;
-  if (name.includes('git')) return GitBranch;
-  if (name.includes('docker')) return Box;
-  if (name.includes('npm') || name.includes('yarn')) return Package;
-  if (name.includes('sql') || name.includes('db') || name.includes('postgres')) return Database;
-  if (name.includes('aws') || name.includes('cloud')) return Cloud;
-  return Terminal;
-};
+interface ToolCardProps {
+  tool: ToolResult;
+}
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'Healthy':
-      return {
-        border: 'border-emerald-500/30 hover:border-emerald-500/60 hover:shadow-emerald-500/20',
-        badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50',
-        icon: 'text-emerald-400'
-      };
-    case 'Warning':
-      return {
-        border: 'border-yellow-500/30 hover:border-yellow-500/60 hover:shadow-yellow-500/20',
-        badge: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50',
-        icon: 'text-yellow-400'
-      };
-    case 'Critical':
-      return {
-        border: 'border-red-500/30 hover:border-red-500/60 hover:shadow-red-500/20',
-        badge: 'bg-red-500/20 text-red-300 border-red-500/50',
-        icon: 'text-red-400'
-      };
-    default:
-      return {
-        border: 'border-white/10 hover:border-white/20',
-        badge: 'bg-white/10 text-white/60 border-white/20',
-        icon: 'text-white/60'
-      };
+function categoryBadgeClass(cat: ToolCategory): string {
+  if (cat === 'runtime' || cat === 'language') {
+    return 'bg-indigo-900 text-indigo-300';
   }
-};
+  if (cat === 'package_manager') {
+    return 'bg-purple-900 text-purple-300';
+  }
+  if (cat === 'database') {
+    return 'bg-blue-900 text-blue-300';
+  }
+  return 'bg-gray-800 text-gray-400';
+}
 
-export const ToolCard: React.FC<ToolCardProps> = ({ tool, onFix }) => {
-  const [isFixing, setIsFixing] = useState<string | null>(null);
-  const [fixOutput, setFixOutput] = useState<string>('');
-  const [expandedOutput, setExpandedOutput] = useState(false);
-  const [error, setError] = useState<string>('');
+function borderClass(status: ToolResult['status']): string {
+  if (status === 'ok') return 'border-green-800';
+  if (status === 'outdated') return 'border-yellow-700';
+  return 'border-red-800';
+}
 
-  const IconComponent = getToolIcon(tool.tool_name);
-  const colors = getStatusColor(tool.status);
-
-  const handleFix = async (fixType: 'install' | 'path') => {
-    setIsFixing(fixType);
-    setError('');
-    setFixOutput('');
-    try {
-      await onFix(tool.tool_name, fixType);
-      setFixOutput(`Successfully fixed ${tool.tool_name} with ${fixType} option`);
-      setExpandedOutput(true);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMsg);
-      setFixOutput(errorMsg);
-      setExpandedOutput(true);
-    } finally {
-      setIsFixing(null);
-    }
-  };
+export const ToolCard: React.FC<ToolCardProps> = ({ tool }) => {
+  const { status } = tool;
+  const category = normalizeCategory(tool.category);
 
   return (
     <div
-      className={`rounded-xl border ${colors.border} bg-[#0f0f1a] backdrop-blur-sm overflow-hidden hover:shadow-lg transition-all duration-300`}
+      className={`rounded-xl bg-gray-900 border p-4 flex flex-col gap-2 ${borderClass(status)}`}
     >
-      {/* Card Header */}
-      <div className="p-4 pb-3">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <IconComponent className={`w-6 h-6 ${colors.icon}`} />
-            <h3 className="text-lg font-semibold text-white">{tool.tool_name}</h3>
-          </div>
-          <span className={`px-3 py-1 rounded-full text-xs font-bold border ${colors.badge}`}>
-            {tool.status}
-          </span>
-        </div>
-
-        {/* Version Info */}
-        <div className="font-mono text-xs text-white/60 space-y-1">
-          {tool.is_installed ? (
-            <>
-              <div>Current: {tool.current_version || 'unknown'}</div>
-              {tool.required_version && tool.current_version !== tool.required_version && (
-                <div className="text-yellow-400">
-                  Required: {tool.required_version}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-red-400 font-semibold">Not Installed</div>
-          )}
-        </div>
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="font-semibold text-white">{tool.display_name}</h3>
+        <span
+          className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${categoryBadgeClass(category)}`}
+        >
+          {category.replace('_', ' ')}
+        </span>
       </div>
 
-      {/* Action Buttons */}
-      <div className="px-4 pb-4 flex gap-2">
-        {tool.status === 'Critical' && tool.is_installed && (
-          <button
-            onClick={() => handleFix('path')}
-            disabled={isFixing !== null}
-            className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-red-600/30 hover:bg-red-600/50 text-red-300 border border-red-500/30 transition-colors disabled:opacity-50"
-          >
-            {isFixing === 'path' ? 'Fixing...' : 'Fix PATH'}
-          </button>
+      <div className="flex flex-wrap items-center gap-x-2 text-sm">
+        {status === 'ok' && (
+          <>
+            <span className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1" />
+            <span className="text-gray-300">Installed</span>
+            {tool.installed_version && (
+              <span className="font-mono text-green-400">v{tool.installed_version}</span>
+            )}
+          </>
         )}
-        {!tool.is_installed && (
-          <button
-            onClick={() => handleFix('install')}
-            disabled={isFixing !== null}
-            className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-500/50 transition-colors disabled:opacity-50"
-          >
-            {isFixing === 'install' ? 'Installing...' : 'Install'}
-          </button>
+        {status === 'outdated' && (
+          <>
+            <span className="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-1" />
+            <span className="text-gray-300">Outdated</span>
+            <span className="font-mono text-yellow-400">
+              v{tool.installed_version ?? '?'} → needs v{tool.min_version ?? '?'}
+            </span>
+          </>
         )}
-        {tool.status === 'Warning' && (
-          <button
-            onClick={() => handleFix('install')}
-            disabled={isFixing !== null}
-            className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-yellow-600/30 hover:bg-yellow-600/50 text-yellow-300 border border-yellow-500/30 transition-colors disabled:opacity-50"
-          >
-            {isFixing === 'install' ? 'Updating...' : 'Update'}
-          </button>
+        {status === 'missing' && (
+          <>
+            <span className="inline-block w-2 h-2 rounded-full bg-red-400 mr-1" />
+            <span className="text-gray-300">Not installed</span>
+            <span className="font-mono text-red-400">Required</span>
+          </>
         )}
       </div>
 
-      {/* Divider */}
-      {(fixOutput || error) && <div className="border-t border-white/10" />}
+      {tool.why_needed ? (
+        <p className="text-xs text-gray-500 italic">{tool.why_needed}</p>
+      ) : null}
 
-      {/* Terminal Output */}
-      {expandedOutput && fixOutput && (
-        <div className="p-4">
-          <button
-            onClick={() => setExpandedOutput(false)}
-            className="w-full flex items-center justify-between mb-3 text-white/60 hover:text-white transition-colors"
-          >
-            <span className="text-xs font-medium">Terminal Output</span>
-            <ChevronDown
-              size={16}
-              className={`transition-transform duration-300 ${
-                expandedOutput ? 'rotate-180' : ''
-              }`}
-            />
-          </button>
-          {error ? (
-            <div className="flex gap-2 p-3 rounded bg-red-500/10 border border-red-500/30">
-              <AlertCircle size={18} className="text-red-400 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-300">{error}</p>
-            </div>
-          ) : (
-            <TerminalOutput content={fixOutput} shell="powershell" />
-          )}
-        </div>
-      )}
+      {(status === 'outdated' || status === 'missing') && tool.install_url ? (
+        <a
+          href={tool.install_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-indigo-400 hover:text-indigo-300 text-sm underline mt-1"
+        >
+          Install / Update →
+        </a>
+      ) : null}
     </div>
   );
 };

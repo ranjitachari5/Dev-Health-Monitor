@@ -32,3 +32,14 @@ class ProjectConfig(SQLModel, table=True):
     description: str
     ai_response: str
 
+
+class StackScanRecord(SQLModel, table=True):
+    """Persists dynamic stack scans (Grok + local subprocess checks)."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
+    stack_name: str = Field(default="")
+    user_input_summary: str = Field(default="")
+    results_json: str = Field(default="")
+    summary_json: str = Field(default="")
+

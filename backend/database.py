@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Generator
 
+from dotenv import load_dotenv
 from sqlmodel import Session, SQLModel, create_engine
+
+load_dotenv()
 
 
 def _load_database_url() -> str:
+    env_url = (os.getenv("DATABASE_URL") or "").strip()
+    if env_url:
+        return env_url
     config_path = Path(__file__).resolve().parent / "config.json"
     try:
         data = json.loads(config_path.read_text(encoding="utf-8"))

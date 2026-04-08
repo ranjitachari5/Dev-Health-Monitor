@@ -1,109 +1,117 @@
 import React, { useEffect, useState } from 'react';
-import { ScanLog } from '../types/index';
-import { apiClient } from '../api/client';
+import { getScanById, getScanHistory } from '../api/client';
+import type { ScanHistoryItem, ScanResponse } from '../types';
 
 interface ScanHistoryProps {
-  currentScore?: number;
+  onBack: () => void;
+  onSelectScan?: (data: ScanResponse) => void;
 }
 
-export const ScanHistory: React.FC<ScanHistoryProps> = ({ currentScore = 0 }) => {
-  const [history, setHistory] = useState<ScanLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export const ScanHistory: React.FC<ScanHistoryProps> = ({ onBack, onSelectScan }) => {
+  const [items, setItems] = useState<ScanHistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [openingId, setOpeningId] = useState<number | null>(null);
 
   useEffect(() => {
-    const fetchHistory = async () => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const logs = await apiClient.getScanHistory();
-        const last5 = logs.slice(-5).reverse();
-        setHistory(last5);
-      } catch (error) {
-        console.error('Failed to fetch scan history:', error);
+        const data = await getScanHistory();
+        if (!cancelled) setItems(data);
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Failed to load history');
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setLoading(false);
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-    fetchHistory();
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="backdrop-blur-sm bg-white/5 border border-white/10 rounded-xl p-6">
-        <h3 className="text-lg font-bold text-white mb-4">Recent Scans</h3>
-        <div className="text-center text-white/60">Loading history...</div>
-      </div>
-    );
-  }
-
-  if (history.length === 0) {
-    return (
-      <div className="backdrop-blur-sm bg-white/5 border border-white/10 rounded-xl p-6">
-        <h3 className="text-lg font-bold text-white mb-4">Recent Scans</h3>
-        <div className="text-center text-white/60">No scan history yet</div>
-      </div>
-    );
-  }
-
-  const maxScore = Math.max(...history.map(h => h.overall_score), currentScore, 100);
-  const minScore = Math.min(...history.map(h => h.overall_score), currentScore, 0);
-  const range = maxScore - minScore || 1;
-
-  const getScoreColor = (score: number) => {
-    if (score >= 76) return 'bg-emerald-500';
-    if (score >= 41) return 'bg-yellow-500';
-    return 'bg-red-500';
+  const openScan = async (id: number) => {
+    if (!onSelectScan) return;
+    setOpeningId(id);
+    try {
+      const full = await getScanById(id);
+      onSelectScan(full);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to open scan');
+    } finally {
+      setOpeningId(null);
+    }
   };
 
   return (
-    <div className="backdrop-blur-sm bg-white/5 border border-white/10 rounded-xl p-6">
-      <h3 className="text-lg font-bold text-white mb-6">Score Over Time</h3>
+    <div className="min-h-screen bg-gray-950 text-white px-4 py-8">
+      <div className="max-w-3xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-xl font-bold">Scan history</h1>
+          <button
+            type="button"
+            onClick={onBack}
+            className="text-sm text-gray-400 hover:text-white"
+          >
+            ← Back
+          </button>
+        </div>
 
-      {/* Chart visualization */}
-      <div className="flex items-end justify-center gap-2 h-32 mb-6">
-        {history.map((scan, idx) => {
-          const normalizedHeight = ((scan.overall_score - minScore) / range) * 100;
-          return (
-            <div
-              key={idx}
-              className="flex-1 flex flex-col items-center gap-1 group cursor-pointer"
-            >
-              <div className="relative w-full h-full flex items-end justify-center">
-                <div
-                  className={`w-3/4 rounded-t transition-all duration-300 group-hover:w-full ${getScoreColor(
-                    scan.overall_score
-                  )}`}
-                  style={{
-                    height: `${Math.max(normalizedHeight, 5)}%`,
-                    opacity: 0.8
-                  }}
-                />
-              </div>
-              <div className="text-xs text-white/60 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-                {scan.overall_score}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Timeline */}
-      <div className="space-y-3">
-        {history.map((scan, idx) => (
-          <div key={idx} className="flex items-center gap-4">
-            <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${getScoreColor(scan.overall_score)}`}>
-                <span className="text-xs font-bold text-white">
-                  {Math.round(scan.overall_score)}
-                </span>
-              </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white/80 font-medium truncate">{scan.platform}</p>
-              <p className="text-white/40 text-xs">
-                {new Date(scan.scan_timestamp).toLocaleDateString()} {new Date(scan.scan_timestamp).toLocaleTimeString()}
-              </p>
-            </div>
+        {loading && (
+          <div className="animate-pulse space-y-3">
+            <div className="h-16 bg-gray-800 rounded-xl" />
+            <div className="h-16 bg-gray-800 rounded-xl" />
           </div>
-        ))}
+        )}
+
+        {error && (
+          <div className="rounded-xl border border-red-800 bg-red-950/40 text-red-200 text-sm p-4">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && items.length === 0 && (
+          <p className="text-gray-500 text-sm">No scans yet. Run a scan from the home screen.</p>
+        )}
+
+        <ul className="space-y-3 mt-4">
+          {items.map((row) => (
+            <li key={row.scan_id}>
+              <button
+                type="button"
+                disabled={!onSelectScan || openingId === row.scan_id}
+                onClick={() => void openScan(row.scan_id)}
+                className="w-full text-left rounded-xl border border-gray-800 bg-gray-900 hover:bg-gray-800/80 p-4 transition-colors disabled:opacity-60"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold text-white">{row.stack_name}</span>
+                  <span className="text-xs text-gray-500">
+                    {row.timestamp ? new Date(row.timestamp).toLocaleString() : ''}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1 truncate">{row.user_input_summary}</p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-800 text-gray-300">
+                    {row.summary?.total ?? 0} tools
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-900 text-green-300">
+                    {row.summary?.ok ?? 0} ok
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-900 text-yellow-300">
+                    {row.summary?.outdated ?? 0} outdated
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-900 text-red-300">
+                    {row.summary?.missing ?? 0} missing
+                  </span>
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

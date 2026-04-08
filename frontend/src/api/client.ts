@@ -1,80 +1,74 @@
-import axios from 'axios';
-import {
-  HealthScanResponse,
-  AnalyzeResponse,
-  FixResponse,
-  ScanLog,
-  InstallCommandResponse
-} from '../types/index';
+import type {
+  GithubAnalysis,
+  ScanHistoryItem,
+  ScanResponse,
+} from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// If VITE_API_URL is empty/unset, use relative paths (Vite proxy handles /api/* → backend)
+// If explicitly set (e.g. production), use that URL
+const BASE = import.meta.env.VITE_API_URL || '';
 
-const client = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 30000
-});
-
-class ApiClient {
-  private handleError(error: unknown): Error {
-    if (axios.isAxiosError(error)) {
-      const message = error.response?.data?.detail || error.message || 'An error occurred';
-      return new Error(message);
+function formatDetail(errBody: unknown): string {
+  if (typeof errBody === 'object' && errBody !== null && 'detail' in errBody) {
+    const d = (errBody as { detail: unknown }).detail;
+    if (typeof d === 'string') return d;
+    if (Array.isArray(d)) {
+      return d
+        .map((x) => (typeof x === 'object' && x !== null ? JSON.stringify(x) : String(x)))
+        .join('; ');
     }
-    return error instanceof Error ? error : new Error('An unknown error occurred');
+    return String(d);
   }
-
-  async runHealthScan(): Promise<HealthScanResponse> {
-    try {
-      const response = await client.get<HealthScanResponse>('/api/health');
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
-  }
-
-  async analyzeProject(description: string): Promise<AnalyzeResponse> {
-    try {
-      const response = await client.post<AnalyzeResponse>('/api/analyze', {
-        project_description: description
-      });
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
-  }
-
-  async fixTool(toolName: string, fixType: 'install' | 'path'): Promise<FixResponse> {
-    try {
-      const response = await client.post<FixResponse>(
-        `/api/fix/${toolName}`,
-        {},
-        { params: { fix_type: fixType } }
-      );
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
-  }
-
-  async getScanHistory(): Promise<ScanLog[]> {
-    try {
-      const response = await client.get<ScanLog[]>('/api/scan/history');
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
-  }
-
-  async getInstallCommand(toolName: string): Promise<InstallCommandResponse> {
-    try {
-      const response = await client.get<InstallCommandResponse>(
-        `/api/install-command/${toolName}`
-      );
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
-  }
+  return 'Request failed';
 }
 
-export const apiClient = new ApiClient();
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(BASE + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+    throw new Error(formatDetail(err));
+  }
+  return res.json() as Promise<T>;
+}
+
+async function get<T>(path: string): Promise<T> {
+  const res = await fetch(BASE + path);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Request failed' }));
+    throw new Error(formatDetail(err));
+  }
+  return res.json() as Promise<T>;
+}
+
+export const runScan = (req: { user_input: string; detected_tools: string[] }) =>
+  post<ScanResponse>('/api/scan', req);
+
+export const analyzeGithub = (repo_url: string) =>
+  post<GithubAnalysis>('/api/analyze-github', { repo_url });
+
+export const getScanHistory = () => get<ScanHistoryItem[]>('/api/history');
+
+export const getScanById = (id: number) => get<ScanResponse>(`/api/scan/${id}`);
+
+/** Legacy quick machine scan (all tools). */
+export async function runHealthScan(): Promise<import('../types').HealthScanResponse> {
+  const raw = await get<{
+    scan_id: number;
+    platform: string;
+    overall_score: number;
+    tools: import('../types').ToolHealth[];
+    timestamp: string;
+  }>('/api/health');
+  return {
+    scan_id: raw.scan_id,
+    timestamp: raw.timestamp,
+    scan_timestamp: raw.timestamp,
+    overall_score: raw.overall_score,
+    platform: raw.platform,
+    tools: raw.tools,
+  };
+}

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import asyncio
+import os
 import platform as _platform
 import re
 import shutil
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+from packaging.version import InvalidVersion, Version
 
 from .config_parser import get_config_value
 
@@ -255,4 +259,93 @@ def scan_all_tools() -> List[Dict]:
     # Stable ordering for API clients
     results.sort(key=lambda x: str(x.get("tool_name", "")))
     return results
+
+
+_VERSION_SCAN_RE = re.compile(r"(\d+\.\d+(?:\.\d+)?)")
+
+
+def _scan_one_tool_sync(tool: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Runs check_command on the real machine (subprocess). Uses os/platform for host context.
+    """
+    name = str(tool.get("name", "unknown"))
+    display_name = str(tool.get("display_name", name))
+    category = str(tool.get("category", "devtool"))
+    check_cmd = str(tool.get("check_command", ""))
+    install_url = str(tool.get("install_url", "") or "https://")
+    why_needed = str(tool.get("why_needed", ""))
+    raw_min = tool.get("min_version")
+    min_version: Optional[str]
+    if raw_min is None or raw_min == "":
+        min_version = None
+    else:
+        min_version = str(raw_min)
+
+    is_critical = category in ("runtime", "package_manager", "language")
+
+    base = {
+        "name": name,
+        "display_name": display_name,
+        "category": category,
+        "status": "missing",
+        "installed_version": None,
+        "min_version": min_version,
+        "install_url": install_url,
+        "why_needed": why_needed,
+        "is_critical": is_critical,
+        "host_os_name": os.name,
+        "host_system": _platform.system(),
+    }
+
+    if not check_cmd.strip():
+        return base
+
+    try:
+        proc = subprocess.run(
+            check_cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except subprocess.TimeoutExpired:
+        return base
+    except Exception:
+        return base
+
+    combined = (proc.stdout or "") + "\n" + (proc.stderr or "")
+    m = _VERSION_SCAN_RE.search(combined)
+    extracted = m.group(1) if m else None
+
+    if proc.returncode != 0 or not extracted:
+        return base
+
+    try:
+        installed_ver = Version(extracted)
+    except InvalidVersion:
+        return base
+
+    if min_version:
+        try:
+            min_ver = Version(min_version)
+            status = "ok" if installed_ver >= min_ver else "outdated"
+        except InvalidVersion:
+            status = "ok"
+    else:
+        status = "ok"
+
+    base["installed_version"] = extracted
+    base["status"] = status
+    return base
+
+
+async def scan_environment(required_tools: list[dict]) -> list[dict]:
+    """
+    Dynamically scans only tools returned by the AI. Each check runs a real subprocess on the host.
+    """
+    if not required_tools:
+        return []
+
+    tasks = [asyncio.to_thread(_scan_one_tool_sync, t) for t in required_tools]
+    return list(await asyncio.gather(*tasks))
 

@@ -7,7 +7,9 @@ export interface ToolHealth {
 }
 
 export interface HealthScanResponse {
-  scan_timestamp: string;
+  scan_id?: number;
+  scan_timestamp?: string;
+  timestamp?: string;
   overall_score: number;
   platform: string;
   tools: ToolHealth[];
@@ -46,6 +48,75 @@ export interface InstallCommandResponse {
   command: string;
   notes: string;
 }
+
+export type ToolStatus = 'ok' | 'outdated' | 'missing';
+export type ToolCategory =
+  | 'runtime'
+  | 'package_manager'
+  | 'database'
+  | 'devtool'
+  | 'container'
+  | 'language';
+
+export interface ToolResult {
+  name: string;
+  display_name: string;
+  category: ToolCategory;
+  status: ToolStatus;
+  installed_version: string | null;
+  min_version: string | null;
+  install_url: string;
+  why_needed: string;
+  is_critical: boolean;
+  host_os_name?: string;
+  host_system?: string;
+}
+
+export interface ScanSummary {
+  total: number;
+  ok: number;
+  outdated: number;
+  missing: number;
+}
+
+export interface ScanEnvironmentMeta {
+  os_name: string;
+  system: string;
+  platform: string;
+}
+
+export interface ScanResponse {
+  scan_id: number;
+  stack_name: string;
+  results: ToolResult[];
+  summary: ScanSummary;
+  environment?: ScanEnvironmentMeta;
+  timestamp?: string;
+}
+
+export interface GithubAnalysis {
+  detected_tools: string[];
+  stack_hint: string;
+}
+
+export interface ScanHistoryItem {
+  scan_id: number;
+  timestamp: string;
+  stack_name: string;
+  user_input_summary: string;
+  summary: ScanSummary;
+}
+
+export type InputMode = 'chat' | 'folder' | 'github' | 'template';
+
+export interface ProjectTemplate {
+  name: string;
+  icon: string;
+  tools: string[];
+  description: string;
+}
+
+export type AppView = 'landing' | 'input' | 'scanning' | 'results' | 'history';
 
 export interface AppState {
   currentScreen: 'landing' | 'input' | 'dashboard';

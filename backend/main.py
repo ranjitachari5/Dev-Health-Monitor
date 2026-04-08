@@ -1,36 +1,37 @@
 from __future__ import annotations
-from groq import Groq
+
 import json
+import os as os_module
+import platform as platform_module
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
+load_dotenv()
+
 from database import create_db_and_tables, get_session
-from models import ProjectConfig, ScanLog, ToolHealth
-from core.ai_advisor import analyze_project, get_install_command
+from models import ProjectConfig, ScanLog, StackScanRecord, ToolHealth
+from core.ai_advisor import analyze_project, get_install_command, resolve_dependencies
 from core.auto_fixer import detect_platform as detect_fix_platform
 from core.auto_fixer import trigger_fix
 from core.config_parser import get_config_value
+from core.github_analyzer import analyze_github_repo
 from core.scanner import detect_platform as detect_scan_platform
-from core.scanner import scan_all_tools
-
-
-from dotenv import load_dotenv
-import os
-
-load_dotenv()
+from core.scanner import scan_all_tools, scan_environment
 
 app = FastAPI(title="Dev Environment Health Monitor")
 
-cors_origins = get_config_value("api.cors_origins", ["http://localhost:5173"]) or ["http://localhost:5173"]
+_cors_cfg = get_config_value("api.cors_origins", []) or []
+_cors_base = ["http://localhost:5173", "http://localhost:3000"]
+cors_origins = list(dict.fromkeys(_cors_base + (list(_cors_cfg) if isinstance(_cors_cfg, list) else [])))
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list(cors_origins),
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,7 +46,11 @@ def root() -> Dict[str, Any]:
         "docs": "/docs",
         "endpoints": {
             "health": "/api/health",
+            "scan": "/api/scan",
             "analyze": "/api/analyze",
+            "analyze_github": "/api/analyze-github",
+            "history_dynamic": "/api/history",
+            "scan_by_id": "/api/scan/{scan_id}",
             "fix": "/api/fix/{tool_name}?fix_type=install|path|update",
             "history": "/api/scan/history",
             "install_command": "/api/install-command/{tool_name}",
@@ -56,6 +61,133 @@ def root() -> Dict[str, Any]:
 @app.get("/api/ping")
 def ping() -> Dict[str, str]:
     return {"status": "ok"}
+
+
+class ScanRequest(BaseModel):
+    user_input: str
+    detected_tools: List[str] = []
+
+
+class GithubRequest(BaseModel):
+    repo_url: str
+
+
+@app.post("/api/scan")
+async def api_scan(req: ScanRequest, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    try:
+        resolved = await resolve_dependencies(req.user_input, req.detected_tools)
+        stack_name = str(resolved.get("stack_name") or "Unknown")
+        raw_tools = resolved.get("required_tools") or []
+        if not isinstance(raw_tools, list):
+            raw_tools = []
+
+        normalized_tools: List[Dict[str, Any]] = []
+        for item in raw_tools:
+            if not isinstance(item, dict):
+                continue
+            normalized_tools.append(item)
+
+        results = await scan_environment(normalized_tools)
+
+        summary = {"total": len(results), "ok": 0, "outdated": 0, "missing": 0}
+        for row in results:
+            st = row.get("status", "missing")
+            if st == "ok":
+                summary["ok"] += 1
+            elif st == "outdated":
+                summary["outdated"] += 1
+            else:
+                summary["missing"] += 1
+
+        user_input_summary = (req.user_input or "")[:200]
+
+        record = StackScanRecord(
+            stack_name=stack_name,
+            user_input_summary=user_input_summary,
+            results_json=json.dumps(results),
+            summary_json=json.dumps(summary),
+        )
+        session.add(record)
+        session.commit()
+        session.refresh(record)
+
+        ts = record.timestamp.isoformat() if record.timestamp else ""
+        if ts.endswith("+00:00"):
+            ts = ts.replace("+00:00", "Z")
+
+        return {
+            "scan_id": record.id,
+            "stack_name": stack_name,
+            "results": results,
+            "summary": summary,
+            "environment": {
+                "os_name": os_module.name,
+                "system": platform_module.system(),
+                "platform": platform_module.platform(),
+            },
+            "timestamp": ts,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/analyze-github")
+async def api_analyze_github(req: GithubRequest) -> Dict[str, Any]:
+    try:
+        return await analyze_github_repo(req.repo_url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@app.get("/api/history")
+def api_dynamic_history(session: Session = Depends(get_session)) -> List[Dict[str, Any]]:
+    rows = session.exec(select(StackScanRecord).order_by(StackScanRecord.timestamp.desc()).limit(20)).all()
+    out: List[Dict[str, Any]] = []
+    for r in rows:
+        try:
+            summ = json.loads(r.summary_json) if r.summary_json else {}
+        except json.JSONDecodeError:
+            summ = {}
+        ts = r.timestamp.isoformat() if r.timestamp else ""
+        if ts.endswith("+00:00"):
+            ts = ts.replace("+00:00", "Z")
+        out.append(
+            {
+                "scan_id": r.id,
+                "timestamp": ts,
+                "stack_name": r.stack_name,
+                "user_input_summary": r.user_input_summary,
+                "summary": summ,
+            }
+        )
+    return out
+
+
+@app.get("/api/scan/{scan_id}")
+def api_get_scan(scan_id: int, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    record = session.get(StackScanRecord, scan_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    try:
+        results = json.loads(record.results_json) if record.results_json else []
+    except json.JSONDecodeError:
+        results = []
+    try:
+        summary = json.loads(record.summary_json) if record.summary_json else {}
+    except json.JSONDecodeError:
+        summary = {}
+    ts = record.timestamp.isoformat() if record.timestamp else ""
+    if ts.endswith("+00:00"):
+        ts = ts.replace("+00:00", "Z")
+    return {
+        "scan_id": record.id,
+        "stack_name": record.stack_name,
+        "results": results,
+        "summary": summary,
+        "timestamp": ts,
+    }
 
 
 def _compute_overall_score(tools: List[Dict[str, Any]]) -> int:

@@ -4,10 +4,10 @@
     "subprocess_timeout_seconds": 8,
     "max_workers": 24
   },
-  "groq": {
-    "model": "llama3-8b-8192"
+  "grok": {
+    "model": "llama-3.3-70b-versatile"
   },
   "api": {
-    "cors_origins": ["http://localhost:5173"]
+    "cors_origins": ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://localhost:5174"]
   }
 }
