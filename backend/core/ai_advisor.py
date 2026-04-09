@@ -221,6 +221,92 @@ def analyze_project(user_description: str, scan_results: List[Dict[str, Any]]) -
         }
 
 
+async def analyze_project_async(user_description: str, scan_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    client = grok_client or _grok_async_client()
+    if client is None:
+        return {
+            "error": "GROQ_API_KEY is missing. Set it in backend/.env or your environment. Get a free key at https://console.groq.com",
+            "required_tools": [],
+            "version_requirements": {},
+            "missing_tools": [],
+            "outdated_tools": [],
+            "health_summary": "AI analysis unavailable because GROQ_API_KEY is not configured.",
+            "critical_issues": ["Missing GROQ_API_KEY"],
+            "recommendations": [
+                "Create backend/.env with GROQ_API_KEY=gsk_... and restart the server."
+            ],
+        }
+
+    model = str(get_config_value("grok.model", GROQ_MODEL) or GROQ_MODEL)
+
+    system_prompt = (
+        "You are a senior DevOps engineer. A developer has described their project. "
+        "Based on their description and their current machine scan, return a JSON "
+        "object with:\n"
+        "- required_tools: list of tool names they need\n"
+        "- version_requirements: {tool_name: recommended_version_string}\n"
+        "- missing_tools: list of tool names not installed\n"
+        "- outdated_tools: list of tools where current version is below recommended\n"
+        "- health_summary: one paragraph plain English summary\n"
+        "- critical_issues: list of blocking issues they must fix first\n"
+        "- recommendations: list of actionable fix steps in plain English\n"
+        "Respond ONLY with valid JSON, no markdown."
+    )
+
+    user_message = (
+        f"Project description: {user_description}\n"
+        f"Current machine scan: {json.dumps(scan_results, indent=2)}"
+    )
+
+    try:
+        resp = await client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+        )
+        content = (resp.choices[0].message.content or "").strip()
+        raw_json = _extract_json_object(content) or content
+        try:
+            data = json.loads(raw_json)
+            if isinstance(data, dict):
+                return data
+        except json.JSONDecodeError as e:
+            return {
+                "error": f"Failed to parse AI JSON response: {e}",
+                "raw_response": content,
+                "required_tools": [],
+                "version_requirements": {},
+                "missing_tools": [],
+                "outdated_tools": [],
+                "health_summary": "AI response could not be parsed as JSON.",
+                "critical_issues": ["AI JSON parse failure"],
+                "recommendations": ["Try again. If it persists, inspect raw_response."],
+            }
+        return {
+            "error": "AI response was not a JSON object.",
+            "raw_response": content,
+            "required_tools": [],
+            "version_requirements": {},
+            "missing_tools": [],
+            "outdated_tools": [],
+            "health_summary": "AI response was not a JSON object.",
+            "critical_issues": ["AI response shape invalid"],
+            "recommendations": ["Try again. If it persists, inspect raw_response."],
+        }
+    except Exception as e:
+        return {
+            "error": f"Grok call failed: {e}",
+            "required_tools": [],
+            "version_requirements": {},
+            "missing_tools": [],
+            "outdated_tools": [],
+            "health_summary": "AI analysis unavailable due to a Grok error.",
+            "critical_issues": ["Grok request failed"],
+            "recommendations": ["Verify network access and GROK_API_KEY, then retry."],
+        }
+
 def get_install_command(tool_name: str, platform: str) -> Dict[str, Any]:
     client = _grok_sync_client()
     if client is None:

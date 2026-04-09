@@ -92,6 +92,8 @@ export interface ScanResponse {
   summary: ScanSummary;
   environment?: ScanEnvironmentMeta;
   timestamp?: string;
+  ai_analysis?: AIAnalysis;
+  overall_score?: number;
 }
 
 export interface GithubAnalysis {

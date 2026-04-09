@@ -16,7 +16,7 @@ load_dotenv()
 
 from database import create_db_and_tables, get_session
 from models import ProjectConfig, ScanLog, StackScanRecord, ToolHealth
-from core.ai_advisor import analyze_project, get_install_command, resolve_dependencies
+from core.ai_advisor import analyze_project, analyze_project_async, get_install_command, resolve_dependencies
 from core.auto_fixer import detect_platform as detect_fix_platform
 from core.auto_fixer import trigger_fix
 from core.config_parser import get_config_value
@@ -101,6 +101,26 @@ async def api_scan(req: ScanRequest, session: Session = Depends(get_session)) ->
 
         user_input_summary = (req.user_input or "")[:200]
 
+        ai = await analyze_project_async(user_input_summary, results)
+        ai_analysis = AIAnalysis(
+            required_tools=ai.get("required_tools", []),
+            missing_tools=ai.get("missing_tools", []),
+            outdated_tools=ai.get("outdated_tools", []),
+            health_summary=ai.get("health_summary", ""),
+            critical_issues=ai.get("critical_issues", []),
+            recommendations=ai.get("recommendations", []),
+            version_requirements=ai.get("version_requirements", {}),
+            error=ai.get("error"),
+        ).dict()
+        
+        # calculate overall_score
+        # Compute manually inline to match similar format to _compute_overall_score
+        score = 100
+        for t in results:
+            st = (t.get("status") or "missing").lower()
+            if st != "ok":
+                score -= 5
+
         record = StackScanRecord(
             stack_name=stack_name,
             user_input_summary=user_input_summary,
@@ -120,6 +140,8 @@ async def api_scan(req: ScanRequest, session: Session = Depends(get_session)) ->
             "stack_name": stack_name,
             "results": results,
             "summary": summary,
+            "ai_analysis": ai_analysis,
+            "overall_score": score,
             "environment": {
                 "os_name": os_module.name,
                 "system": platform_module.system(),

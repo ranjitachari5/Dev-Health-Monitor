@@ -4,6 +4,7 @@ import { ScanProgress } from './ScanProgress';
 import { ToolCard } from './ToolCard';
 import { DownloadModal } from './DownloadModal';
 import { generateHealthReport } from '../utils/reportGenerator';
+import { SystemHealthReport } from './SystemHealthReport';
 
 interface ScanDashboardProps {
   scanData: ScanResponse | null;
@@ -147,6 +148,8 @@ export const ScanDashboard: React.FC<ScanDashboardProps> = ({
             </div>
           ))}
         </div>
+        
+        <SystemHealthReport scanData={scanData} />
       </div>
 
       {needsAttention && (
