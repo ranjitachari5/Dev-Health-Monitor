@@ -6,7 +6,7 @@ import type {
 
 // If VITE_API_URL is empty/unset, use relative paths (Vite proxy handles /api/* → backend)
 // If explicitly set (e.g. production), use that URL
-const BASE = import.meta.env.VITE_API_URL || '';
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 function formatDetail(errBody: unknown): string {
   if (typeof errBody === 'object' && errBody !== null && 'detail' in errBody) {
