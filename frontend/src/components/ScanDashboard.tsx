@@ -5,6 +5,7 @@ import { ToolCard } from './ToolCard';
 import { DownloadModal } from './DownloadModal';
 import { generateHealthReport } from '../utils/reportGenerator';
 import { SystemHealthReport } from './SystemHealthReport';
+import { Download, ArrowLeft, RefreshCw } from 'lucide-react';
 
 interface ScanDashboardProps {
   scanData: ScanResponse | null;
@@ -32,24 +33,56 @@ export const ScanDashboard: React.FC<ScanDashboardProps> = ({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-950 text-white px-4 py-8">
+      <div className="min-h-screen text-white px-4 py-8" style={{ background: 'var(--blue-deep)' }}>
         <div className="max-w-3xl mx-auto">
-          <div className="flex justify-end mb-4">
+          {/* Header skeleton */}
+          <div className="flex justify-between items-center mb-8">
             <button
               type="button"
               onClick={onReset}
-              className="text-sm text-gray-400 hover:text-white transition-colors"
+              className="nav-link text-sm flex items-center gap-2"
             >
-              ← New scan
+              <ArrowLeft size={14} /> New scan
             </button>
           </div>
-          <div className="animate-pulse bg-gray-800 rounded-xl h-8 w-2/3 mb-6" />
-          <ScanProgress
-            isVisible
-            stackName={scanData?.stack_name}
-            toolCount={scanData?.results?.length}
-            results={scanData?.results}
-          />
+
+          {/* Scanning animation */}
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="relative w-32 h-32 mb-8">
+              {/* Glow rings */}
+              <div className="absolute inset-0 rounded-full border-2 border-blue-500/30 animate-ping" />
+              <div className="absolute inset-2 rounded-full border border-blue-400/20 animate-ping" style={{ animationDelay: '0.3s' }} />
+              {/* Inner spinner */}
+              <div className="absolute inset-4 rounded-full border-4 border-transparent border-t-blue-500 animate-spin"
+                style={{ boxShadow: '0 0 20px rgba(59,130,246,0.4)' }} />
+              <div className="absolute inset-8 rounded-full flex items-center justify-center"
+                style={{ background: 'rgba(30,64,175,0.2)' }}>
+                <RefreshCw size={20} className="text-blue-400 animate-spin" style={{ animationDirection: 'reverse' }} />
+              </div>
+            </div>
+
+            <p className="text-xl font-semibold gradient-text mb-2">Scanning your environment</p>
+            <p className="text-blue-200/50 text-sm">Connecting to Grok AI...</p>
+
+            <div className="flex gap-2 mt-6">
+              <div className="pulse-dot" />
+              <div className="pulse-dot" />
+              <div className="pulse-dot" />
+            </div>
+          </div>
+
+          {/* Terminal output */}
+          <div className="mt-4">
+            <div className="relative overflow-hidden rounded-xl terminal-glow">
+              <div className="scan-line" />
+              <ScanProgress
+                isVisible
+                stackName={scanData?.stack_name}
+                toolCount={scanData?.results?.length}
+                results={scanData?.results}
+              />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -57,90 +90,98 @@ export const ScanDashboard: React.FC<ScanDashboardProps> = ({
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-950 text-white px-4 py-8 flex items-center justify-center">
-        <div className="max-w-lg w-full rounded-xl border border-red-800 bg-gray-900 p-6">
-          <h2 className="text-lg font-semibold text-red-400 mb-2">Scan failed</h2>
-          <p className="text-gray-300 text-sm mb-6">{error}</p>
+      <div className="min-h-screen text-white px-4 py-8 flex items-center justify-center"
+        style={{ background: 'var(--blue-deep)' }}>
+        <div className="max-w-lg w-full glass-card rounded-2xl p-8 text-center">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'rgba(185,28,28,0.2)', border: '1px solid rgba(239,68,68,0.3)', boxShadow: '0 0 30px rgba(239,68,68,0.15)' }}>
+            <span className="text-2xl">⚠</span>
+          </div>
+          <h2 className="text-xl font-bold text-red-400 mb-2">Scan Failed</h2>
+          <p className="text-blue-200/60 text-sm mb-8">{error}</p>
           <button
             type="button"
             onClick={onReset}
-            className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 py-2 text-white font-medium"
+            className="btn-neon w-full rounded-xl py-3 text-white font-semibold"
+            data-hover
           >
-            Try again
+            Try Again
           </button>
         </div>
       </div>
     );
   }
 
-  if (!scanData) {
-    return null;
-  }
+  if (!scanData) return null;
 
   const { summary } = scanData;
   const needsAttention = summary.outdated > 0 || summary.missing > 0;
-  const ts = scanData.timestamp
-    ? new Date(scanData.timestamp).toLocaleString()
-    : null;
+  const ts = scanData.timestamp ? new Date(scanData.timestamp).toLocaleString() : null;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white pb-28">
+    <div className="min-h-screen text-white pb-28" style={{ background: 'var(--blue-deep)' }}>
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex justify-between items-center mb-2">
+        {/* Top bar */}
+        <div className="flex justify-between items-center mb-6">
           <button
             type="button"
             onClick={() => generateHealthReport(scanData)}
-            className="text-sm font-medium bg-indigo-600/20 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-600/30 px-3 py-1.5 rounded-lg transition-colors border border-indigo-500/30 flex items-center gap-2"
+            className="btn-neon flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
+            data-hover
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <Download size={14} />
             Export Report
           </button>
-          
           <button
             type="button"
             onClick={onReset}
-            className="text-sm text-gray-400 hover:text-white transition-colors"
+            className="nav-link text-sm flex items-center gap-2"
           >
-            ← New scan
+            <ArrowLeft size={14} /> New scan
           </button>
         </div>
 
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        {/* Stack info */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-8 animate-fade-in-up">
           <div>
-            <h1 className="text-2xl font-bold text-white">{scanData.stack_name}</h1>
-            {ts && <p className="text-gray-400 text-sm mt-1">{ts}</p>}
+            <h1 className="text-3xl font-bold text-white">{scanData.stack_name}</h1>
+            {ts && <p className="text-blue-200/50 text-sm mt-1">{ts}</p>}
             {scanData.environment && (
-              <p className="text-gray-500 text-xs mt-2 font-mono">
+              <p className="text-blue-200/30 text-xs mt-2 font-mono">
                 Host: {scanData.environment.system} ({scanData.environment.os_name})
               </p>
             )}
           </div>
+
+          {/* Summary badges */}
           <div className="flex flex-wrap gap-2 justify-end">
-            <span className="text-xs px-3 py-1 rounded-full font-medium bg-gray-800 text-gray-300">
+            <span className="text-xs px-3 py-1.5 rounded-full font-semibold"
+              style={{ background: 'rgba(30,64,175,0.2)', border: '1px solid rgba(59,130,246,0.3)', color: '#93c5fd' }}>
               {summary.total} tools
             </span>
-            <span className="text-xs px-3 py-1 rounded-full font-medium bg-green-900 text-green-300">
-              {summary.ok} ok
+            <span className="badge-ok text-xs px-3 py-1.5 rounded-full font-semibold">
+              ✓ {summary.ok} healthy
             </span>
             {summary.outdated > 0 && (
-              <span className="text-xs px-3 py-1 rounded-full font-medium bg-yellow-900 text-yellow-300">
-                {summary.outdated} outdated
+              <span className="badge-outdated text-xs px-3 py-1.5 rounded-full font-semibold">
+                ⚡ {summary.outdated} outdated
               </span>
             )}
             {summary.missing > 0 && (
-              <span className="text-xs px-3 py-1 rounded-full font-medium bg-red-900 text-red-300">
-                {summary.missing} missing
+              <span className="badge-missing text-xs px-3 py-1.5 rounded-full font-semibold">
+                ✗ {summary.missing} missing
               </span>
             )}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+        {/* Tool cards grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
           {scanData.results.map((t, index) => (
             <div
               key={t.name + index}
               className={`transform transition-all duration-500 ease-out ${
-                cardsMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+                cardsMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
               }`}
               style={{ transitionDelay: `${index * 50}ms` } as React.CSSProperties}
             >
@@ -148,22 +189,30 @@ export const ScanDashboard: React.FC<ScanDashboardProps> = ({
             </div>
           ))}
         </div>
-        
-        <SystemHealthReport scanData={scanData} />
+
+        {/* AI Health Report */}
+        <div className="mt-8 animate-fade-in-up" style={{ animationDelay: '400ms' }}>
+          <SystemHealthReport scanData={scanData} />
+        </div>
       </div>
 
+      {/* Footer action bar */}
       {needsAttention && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-gray-950 border-t border-gray-800 p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 max-w-7xl mx-auto w-full px-4">
-          <p className="text-gray-300 text-sm">
-            {summary.outdated + summary.missing} tool(s) need attention
-          </p>
-          <button
-            type="button"
-            onClick={() => setShowDownloadModal(true)}
-            className="rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 font-medium shrink-0"
-          >
-            Download / Update all →
-          </button>
+        <div className="fixed bottom-0 left-0 right-0 z-40 p-4"
+          style={{ background: 'linear-gradient(to top, rgba(5,5,16,0.98) 0%, rgba(5,5,16,0.8) 100%)', borderTop: '1px solid rgba(59,130,246,0.15)', backdropFilter: 'blur(20px)' }}>
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+            <p className="text-blue-200/70 text-sm">
+              <span className="text-white font-semibold">{summary.outdated + summary.missing}</span> tool(s) need your attention
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowDownloadModal(true)}
+              className="btn-neon rounded-xl px-6 py-2.5 text-white font-semibold shrink-0 text-sm animate-glow-pulse"
+              data-hover
+            >
+              Fix All Issues →
+            </button>
+          </div>
         </div>
       )}
 
@@ -172,7 +221,6 @@ export const ScanDashboard: React.FC<ScanDashboardProps> = ({
         onClose={() => setShowDownloadModal(false)}
         tools={scanData.results.filter((t) => t.status !== 'ok')}
       />
-
     </div>
   );
 };

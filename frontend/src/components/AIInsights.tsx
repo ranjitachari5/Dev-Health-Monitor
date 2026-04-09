@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Wrench, AlertTriangle, Clock, Lightbulb } from 'lucide-react';
 import { AIAnalysis } from '../types/index';
 
 interface AIInsightsProps {
@@ -15,11 +15,8 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ analysis, onFixTool }) =
 
   const toggleSection = (section: string) => {
     const newExpanded = new Set(expandedSections);
-    if (newExpanded.has(section)) {
-      newExpanded.delete(section);
-    } else {
-      newExpanded.add(section);
-    }
+    if (newExpanded.has(section)) newExpanded.delete(section);
+    else newExpanded.add(section);
     setExpandedSections(newExpanded);
   };
 
@@ -28,7 +25,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ analysis, onFixTool }) =
     try {
       await onFixTool(toolName, fixType);
     } finally {
-      setFixingTools(prev => {
+      setFixingTools((prev) => {
         const next = new Set(prev);
         next.delete(`${toolName}-${fixType}`);
         return next;
@@ -37,29 +34,27 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ analysis, onFixTool }) =
   };
 
   const Section = ({
-    title,
-    id,
-    children
-  }: {
-    title: string;
-    id: string;
-    children: React.ReactNode;
-  }) => (
-    <div className="border-b border-white/10 last:border-b-0">
+    title, id, icon, children,
+  }: { title: string; id: string; icon: React.ReactNode; children: React.ReactNode }) => (
+    <div style={{ borderBottom: '1px solid rgba(59,130,246,0.08)' }} className="last:border-b-0">
       <button
         onClick={() => toggleSection(id)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3.5 transition-colors"
+        style={{ background: expandedSections.has(id) ? 'rgba(30,64,175,0.06)' : 'transparent' }}
+        data-hover
       >
-        <span className="text-white/80 font-medium">{title}</span>
+        <div className="flex items-center gap-2.5">
+          <span className="text-blue-400">{icon}</span>
+          <span className="text-blue-100/80 font-semibold text-sm">{title}</span>
+        </div>
         <ChevronDown
-          size={20}
-          className={`text-white/60 transition-transform duration-300 ${
-            expandedSections.has(id) ? 'rotate-180' : ''
-          }`}
+          size={16}
+          className="text-blue-400/60 transition-transform duration-300"
+          style={{ transform: expandedSections.has(id) ? 'rotate(180deg)' : 'rotate(0deg)' }}
         />
       </button>
       {expandedSections.has(id) && (
-        <div className="px-4 py-3 bg-black/20 border-t border-white/10">
+        <div className="px-4 py-4" style={{ background: 'rgba(5,5,16,0.4)', borderTop: '1px solid rgba(59,130,246,0.06)' }}>
           {children}
         </div>
       )}
@@ -68,17 +63,18 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ analysis, onFixTool }) =
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xl font-bold text-white mb-4">AI Insights</h3>
+      <h3 className="text-xl font-bold gradient-text mb-5">AI Insights</h3>
 
-      <div className="backdrop-blur-sm bg-white/5 border border-white/10 rounded-xl overflow-hidden">
-        {/* What you need */}
+      <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(5,5,16,0.6)', border: '1px solid rgba(59,130,246,0.12)' }}>
+
         {analysis.required_tools.length > 0 && (
-          <Section title="What you need" id="required">
+          <Section title="Required Tools" id="required" icon={<Wrench size={14} />}>
             <div className="flex flex-wrap gap-2">
               {analysis.required_tools.map((tool) => (
                 <span
                   key={tool}
-                  className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/50"
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold"
+                  style={{ background: 'rgba(37,99,235,0.2)', border: '1px solid rgba(59,130,246,0.35)', color: '#93c5fd' }}
                 >
                   {tool}
                 </span>
@@ -87,22 +83,24 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ analysis, onFixTool }) =
           </Section>
         )}
 
-        {/* Missing Tools */}
         {analysis.missing_tools.length > 0 && (
-          <Section title="Missing Tools" id="missing">
+          <Section title="Missing Tools" id="missing" icon={<AlertTriangle size={14} />}>
             <div className="space-y-2">
               {analysis.missing_tools.map((tool) => (
                 <div
                   key={tool}
-                  className="flex items-center justify-between p-2 rounded bg-red-500/10 border border-red-500/30"
+                  className="flex items-center justify-between p-3 rounded-xl"
+                  style={{ background: 'rgba(185,28,28,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}
                 >
-                  <span className="text-white/80 font-medium">{tool}</span>
+                  <span className="text-red-200/80 font-medium text-sm">{tool}</span>
                   <button
                     onClick={() => handleFix(tool, 'install')}
                     disabled={fixingTools.has(`${tool}-install`)}
-                    className="px-3 py-1 rounded text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-50"
+                    className="px-3 py-1 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                    style={{ background: 'rgba(239,68,68,0.25)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5' }}
+                    data-hover
                   >
-                    {fixingTools.has(`${tool}-install`) ? 'Installing...' : 'Install'}
+                    {fixingTools.has(`${tool}-install`) ? 'Installing…' : 'Install'}
                   </button>
                 </div>
               ))}
@@ -110,22 +108,24 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ analysis, onFixTool }) =
           </Section>
         )}
 
-        {/* Outdated Tools */}
         {analysis.outdated_tools.length > 0 && (
-          <Section title="Outdated Tools" id="outdated">
+          <Section title="Outdated Tools" id="outdated" icon={<Clock size={14} />}>
             <div className="space-y-2">
               {analysis.outdated_tools.map((tool) => (
                 <div
                   key={tool}
-                  className="flex items-center justify-between p-2 rounded bg-yellow-500/10 border border-yellow-500/30"
+                  className="flex items-center justify-between p-3 rounded-xl"
+                  style={{ background: 'rgba(161,98,7,0.12)', border: '1px solid rgba(234,179,8,0.25)' }}
                 >
-                  <span className="text-white/80 font-medium">{tool}</span>
+                  <span className="text-yellow-200/80 font-medium text-sm">{tool}</span>
                   <button
                     onClick={() => handleFix(tool, 'install')}
                     disabled={fixingTools.has(`${tool}-install`)}
-                    className="px-3 py-1 rounded text-xs font-medium bg-yellow-600 hover:bg-yellow-700 text-white transition-colors disabled:opacity-50"
+                    className="px-3 py-1 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                    style={{ background: 'rgba(234,179,8,0.2)', border: '1px solid rgba(234,179,8,0.4)', color: '#fde047' }}
+                    data-hover
                   >
-                    {fixingTools.has(`${tool}-install`) ? 'Updating...' : 'Update'}
+                    {fixingTools.has(`${tool}-install`) ? 'Updating…' : 'Update'}
                   </button>
                 </div>
               ))}
@@ -133,22 +133,20 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ analysis, onFixTool }) =
           </Section>
         )}
 
-        {/* Recommendations */}
         {analysis.recommendations.length > 0 && (
-          <Section title="Recommendations" id="recommendations">
+          <Section title="Recommendations" id="recommendations" icon={<Lightbulb size={14} />}>
             <ol className="space-y-3">
               {analysis.recommendations.map((rec, idx) => (
                 <li key={idx} className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 border border-indigo-500/50 flex items-center justify-center text-xs font-bold text-indigo-300">
+                  <span
+                    className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                    style={{ background: 'rgba(37,99,235,0.2)', border: '1px solid rgba(59,130,246,0.35)', color: '#93c5fd' }}
+                  >
                     {idx + 1}
                   </span>
                   <div className="flex-1">
-                    <input
-                      type="checkbox"
-                      readOnly
-                      className="mr-2 cursor-pointer"
-                    />
-                    <span className="text-white/80">{rec}</span>
+                    <input type="checkbox" readOnly className="mr-2" style={{ cursor: 'none', accentColor: '#3b82f6' }} />
+                    <span className="text-blue-100/70 text-sm">{rec}</span>
                   </div>
                 </li>
               ))}

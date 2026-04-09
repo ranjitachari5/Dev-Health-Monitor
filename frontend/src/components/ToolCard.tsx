@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import type { ToolCategory, ToolResult } from '../types';
 
 const VALID_CATEGORIES: ToolCategory[] = [
@@ -18,82 +18,159 @@ interface ToolCardProps {
   tool: ToolResult;
 }
 
-function categoryBadgeClass(cat: ToolCategory): string {
+function categoryBadgeStyle(cat: ToolCategory): React.CSSProperties {
   if (cat === 'runtime' || cat === 'language') {
-    return 'bg-indigo-900 text-indigo-300';
+    return {
+      background: 'linear-gradient(135deg,rgba(67,56,202,0.4),rgba(99,102,241,0.2))',
+      border: '1px solid rgba(99,102,241,0.4)',
+      color: '#a5b4fc',
+      boxShadow: '0 0 10px rgba(99,102,241,0.2)',
+    };
   }
   if (cat === 'package_manager') {
-    return 'bg-purple-900 text-purple-300';
+    return {
+      background: 'linear-gradient(135deg,rgba(109,40,217,0.4),rgba(139,92,246,0.2))',
+      border: '1px solid rgba(139,92,246,0.4)',
+      color: '#c4b5fd',
+      boxShadow: '0 0 10px rgba(139,92,246,0.2)',
+    };
   }
   if (cat === 'database') {
-    return 'bg-blue-900 text-blue-300';
+    return {
+      background: 'linear-gradient(135deg,rgba(7,89,133,0.4),rgba(14,165,233,0.2))',
+      border: '1px solid rgba(14,165,233,0.4)',
+      color: '#7dd3fc',
+      boxShadow: '0 0 10px rgba(14,165,233,0.2)',
+    };
   }
-  return 'bg-gray-800 text-gray-400';
+  if (cat === 'container') {
+    return {
+      background: 'linear-gradient(135deg,rgba(5,96,96,0.4),rgba(20,184,166,0.2))',
+      border: '1px solid rgba(20,184,166,0.4)',
+      color: '#5eead4',
+      boxShadow: '0 0 10px rgba(20,184,166,0.2)',
+    };
+  }
+  return {
+    background: 'linear-gradient(135deg,rgba(30,64,175,0.3),rgba(59,130,246,0.1))',
+    border: '1px solid rgba(59,130,246,0.3)',
+    color: '#93c5fd',
+    boxShadow: '0 0 10px rgba(59,130,246,0.15)',
+  };
 }
 
-function borderClass(status: ToolResult['status']): string {
-  if (status === 'ok') return 'border-green-800';
-  if (status === 'outdated') return 'border-yellow-700';
-  return 'border-red-800';
+function statusConfig(status: ToolResult['status']) {
+  if (status === 'ok') return {
+    dot: '#10b981',
+    glow: 'rgba(16,185,129,0.4)',
+    label: 'Installed',
+    border: 'rgba(16,185,129,0.3)',
+    bg: 'rgba(5,150,105,0.08)',
+  };
+  if (status === 'outdated') return {
+    dot: '#eab308',
+    glow: 'rgba(234,179,8,0.4)',
+    label: 'Outdated',
+    border: 'rgba(234,179,8,0.3)',
+    bg: 'rgba(161,98,7,0.08)',
+  };
+  return {
+    dot: '#ef4444',
+    glow: 'rgba(239,68,68,0.4)',
+    label: 'Missing',
+    border: 'rgba(239,68,68,0.3)',
+    bg: 'rgba(185,28,28,0.08)',
+  };
 }
 
 export const ToolCard: React.FC<ToolCardProps> = ({ tool }) => {
   const { status } = tool;
   const category = normalizeCategory(tool.category);
+  const cfg = statusConfig(status);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const card = cardRef.current;
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
+    card.style.transform = `perspective(600px) rotateY(${x * 10}deg) rotateX(${-y * 8}deg) scale(1.02)`;
+    card.style.boxShadow = `
+      ${x * -8}px ${y * -8}px 30px rgba(0,0,0,0.4),
+      0 0 30px ${cfg.glow},
+      inset 0 1px 0 rgba(255,255,255,0.05)
+    `;
+  };
+
+  const handleMouseLeave = () => {
+    const card = cardRef.current;
+    if (!card) return;
+    card.style.transform = 'perspective(600px) rotateY(0deg) rotateX(0deg) scale(1)';
+    card.style.boxShadow = '';
+  };
 
   return (
     <div
-      className={`rounded-xl bg-gray-900 border p-4 flex flex-col gap-2 ${borderClass(status)}`}
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className="tool-card-3d rounded-xl p-4 flex flex-col gap-2"
+      style={{
+        background: `linear-gradient(135deg, rgba(8,8,32,0.9) 0%, ${cfg.bg} 100%)`,
+        border: `1px solid ${cfg.border}`,
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+      }}
+      data-hover
     >
+      {/* Header */}
       <div className="flex items-start justify-between gap-2">
-        <h3 className="font-semibold text-white">{tool.display_name}</h3>
+        <h3 className="font-semibold text-white text-sm">{tool.display_name}</h3>
         <span
-          className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${categoryBadgeClass(category)}`}
+          className="text-xs px-2 py-0.5 rounded-full shrink-0 font-medium"
+          style={categoryBadgeStyle(category)}
         >
           {category.replace('_', ' ')}
         </span>
       </div>
 
+      {/* Status row */}
       <div className="flex flex-wrap items-center gap-x-2 text-sm">
-        {status === 'ok' && (
-          <>
-            <span className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1" />
-            <span className="text-gray-300">Installed</span>
-            {tool.installed_version && (
-              <span className="font-mono text-green-400">v{tool.installed_version}</span>
-            )}
-          </>
+        <span
+          className="inline-block w-2 h-2 rounded-full shrink-0"
+          style={{ background: cfg.dot, boxShadow: `0 0 8px ${cfg.glow}` }}
+        />
+        <span className="text-blue-100/70 text-xs">{cfg.label}</span>
+        {status === 'ok' && tool.installed_version && (
+          <span className="font-mono text-emerald-400 text-xs">v{tool.installed_version}</span>
         )}
         {status === 'outdated' && (
-          <>
-            <span className="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-1" />
-            <span className="text-gray-300">Outdated</span>
-            <span className="font-mono text-yellow-400">
-              v{tool.installed_version ?? '?'} → needs v{tool.min_version ?? '?'}
-            </span>
-          </>
+          <span className="font-mono text-yellow-400 text-xs">
+            v{tool.installed_version ?? '?'} → v{tool.min_version ?? '?'}
+          </span>
         )}
         {status === 'missing' && (
-          <>
-            <span className="inline-block w-2 h-2 rounded-full bg-red-400 mr-1" />
-            <span className="text-gray-300">Not installed</span>
-            <span className="font-mono text-red-400">Required</span>
-          </>
+          <span className="font-mono text-red-400 text-xs">Required</span>
         )}
       </div>
 
+      {/* Why needed */}
       {tool.why_needed ? (
-        <p className="text-xs text-gray-500 italic">{tool.why_needed}</p>
+        <p className="text-xs text-blue-200/40 italic leading-snug">{tool.why_needed}</p>
       ) : null}
 
+      {/* Install link */}
       {(status === 'outdated' || status === 'missing') && tool.install_url ? (
         <a
           href={tool.install_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-indigo-400 hover:text-indigo-300 text-sm underline mt-1"
+          className="mt-1 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors underline-offset-2 hover:underline"
+          data-hover
         >
-          Install / Update →
+          {status === 'missing' ? 'Install →' : 'Update →'}
         </a>
       ) : null}
     </div>

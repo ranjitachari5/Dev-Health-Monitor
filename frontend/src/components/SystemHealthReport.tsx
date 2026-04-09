@@ -12,44 +12,66 @@ export const SystemHealthReport: React.FC<SystemHealthReportProps> = ({ scanData
   const analysis = scanData.ai_analysis;
 
   return (
-    <div className="mt-8 pt-8 border-t border-gray-800/80">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-white bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-          Grok AI Health Report
-        </h2>
+    <div className="mt-10 pt-10" style={{ borderTop: '1px solid rgba(59,130,246,0.1)' }}>
+      {/* Section header */}
+      <div className="flex items-center gap-3 mb-8">
+        <div
+          className="w-1 h-8 rounded-full"
+          style={{ background: 'linear-gradient(to bottom,#3b82f6,#7c3aed)', boxShadow: '0 0 12px rgba(59,130,246,0.4)' }}
+        />
+        <h2 className="text-2xl font-extrabold gradient-text">Grok AI Health Report</h2>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Health Score Panel */}
-        <div className="col-span-1 bg-gradient-to-b from-gray-900/60 to-gray-950 border border-gray-800/60 rounded-2xl p-6 flex flex-col items-center backdrop-blur-sm shadow-xl">
+        {/* Score panel */}
+        <div
+          className="col-span-1 glass-card rounded-2xl p-8 flex flex-col items-center"
+          style={{ background: 'linear-gradient(160deg,rgba(13,27,75,0.6) 0%,rgba(5,5,16,0.8) 100%)' }}
+        >
           <ScoreRing score={score} />
-          {analysis && analysis.health_summary && (
-            <div className="mt-8 w-full p-4 bg-black/40 rounded-xl border border-white/5">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+          {analysis?.health_summary && (
+            <div
+              className="mt-8 w-full p-4 rounded-xl"
+              style={{
+                background: 'rgba(0,0,0,0.3)',
+                border: '1px solid rgba(59,130,246,0.1)',
+              }}
+            >
+              <h4 className="text-xs font-bold uppercase tracking-widest text-blue-200/40 mb-2">
                 Executive Summary
               </h4>
-              <p className="text-sm text-gray-300 leading-relaxed">
-                {analysis.health_summary}
-              </p>
+              <p className="text-sm text-blue-100/70 leading-relaxed">{analysis.health_summary}</p>
             </div>
           )}
         </div>
 
-        {/* AI Insights Panel */}
+        {/* AI Insights panel */}
         <div className="col-span-1 lg:col-span-2">
           {analysis ? (
-            <div className="bg-gray-900/40 border border-gray-800/60 rounded-2xl p-6 backdrop-blur-sm shadow-xl h-full">
-              <AIInsights 
-                analysis={analysis} 
-                onFixTool={async (toolName, fixType) => {
+            <div
+              className="glass-card rounded-2xl p-6 h-full"
+              style={{ background: 'linear-gradient(135deg,rgba(8,8,40,0.8) 0%,rgba(13,27,75,0.4) 100%)' }}
+            >
+              <AIInsights
+                analysis={analysis}
+                onFixTool={async (toolName) => {
                   window.open(`https://google.com/search?q=install+${toolName}`, '_blank');
-                }} 
+                }}
               />
             </div>
           ) : (
-            <div className="bg-gray-900/40 border border-gray-800/60 rounded-2xl p-6 h-full flex flex-col items-center justify-center backdrop-blur-sm shadow-xl">
-              <div className="w-12 h-12 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin mb-4" />
-              <p className="text-gray-400 font-medium">Generating Grok AI Insights...</p>
+            <div
+              className="glass-card rounded-2xl p-6 h-full flex flex-col items-center justify-center gap-4"
+              style={{ minHeight: '240px' }}
+            >
+              <div className="relative w-16 h-16">
+                <div className="absolute inset-0 rounded-full border-2 border-blue-500/20 animate-ping" />
+                <div
+                  className="absolute inset-2 rounded-full border-4 border-transparent border-t-blue-500 animate-spin"
+                  style={{ boxShadow: '0 0 16px rgba(59,130,246,0.3)' }}
+                />
+              </div>
+              <p className="text-blue-200/50 font-medium text-sm">Generating Grok AI Insights…</p>
             </div>
           )}
         </div>
