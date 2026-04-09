@@ -27,7 +27,8 @@ from core.scanner import scan_all_tools, scan_environment
 app = FastAPI(title="Dev Environment Health Monitor")
 
 _cors_cfg = get_config_value("api.cors_origins", []) or []
-_cors_base = ["http://localhost:5173", "http://localhost:3000"]
+_cors_env = os_module.getenv("CORS_ORIGINS", "")
+_cors_base = ["http://localhost:5173", "http://localhost:3000"] + [o.strip() for o in _cors_env.split(",") if o.strip()]
 cors_origins = list(dict.fromkeys(_cors_base + (list(_cors_cfg) if isinstance(_cors_cfg, list) else [])))
 app.add_middleware(
     CORSMiddleware,
