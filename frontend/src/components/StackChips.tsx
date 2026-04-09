@@ -15,11 +15,11 @@ export const StackChips: React.FC<StackChipsProps> = ({
 }) => {
   return (
     <div className="mb-4">
-      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+      <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'rgba(96,165,250,0.5)' }}>
         {label}
       </p>
       <div className="overflow-x-auto pb-1 -mx-1">
-        <div className="flex flex-nowrap gap-2 min-w-0 px-1">
+        <div className="flex flex-wrap gap-2 px-1">
           {options.map((chip) => {
             const isOn = selected.includes(chip);
             return (
@@ -27,11 +27,18 @@ export const StackChips: React.FC<StackChipsProps> = ({
                 key={chip}
                 type="button"
                 onClick={() => onToggle(chip)}
-                className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  isOn
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
+                className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 chip-btn"
+                style={isOn ? {
+                  background: 'linear-gradient(135deg,rgba(37,99,235,0.5),rgba(124,58,237,0.3))',
+                  border: '1px solid rgba(96,165,250,0.55)',
+                  color: '#e0f2fe',
+                  boxShadow: '0 0 14px rgba(59,130,246,0.25)',
+                } : {
+                  background: 'rgba(8,8,32,0.7)',
+                  border: '1px solid rgba(59,130,246,0.15)',
+                  color: 'rgba(148,163,184,0.8)',
+                }}
+                data-hover
               >
                 {chip}
               </button>

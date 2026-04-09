@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Play } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { Play, Cpu, Zap, Shield, Activity } from 'lucide-react';
 import { Squares } from './Squares';
 
 interface LandingPageProps {
@@ -8,6 +8,13 @@ interface LandingPageProps {
   onViewHistory: () => void;
 }
 
+const FEATURES = [
+  { icon: <Zap size={18} />, label: 'AI-Powered Analysis', desc: 'Grok AI inspects your stack' },
+  { icon: <Cpu size={18} />, label: 'Deep System Scan', desc: 'Every tool, every version' },
+  { icon: <Shield size={18} />, label: 'Health Score', desc: 'Instant readiness report' },
+  { icon: <Activity size={18} />, label: 'Live Progress', desc: 'Real-time terminal output' },
+];
+
 export const LandingPage: React.FC<LandingPageProps> = ({
   onQuickScan,
   onDescribeProject,
@@ -15,16 +22,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 }) => {
   const [platform, setPlatform] = useState<string>('');
   const [isScanning, setIsScanning] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
+  const heroRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const detectPlatform = () => {
-      const ua = navigator.userAgent;
-      if (ua.includes('Windows')) setPlatform('Windows');
-      else if (ua.includes('Mac')) setPlatform('macOS');
-      else if (ua.includes('Linux')) setPlatform('Linux');
-      else setPlatform('Unknown');
+    setMounted(true);
+    const ua = navigator.userAgent;
+    if (ua.includes('Windows')) setPlatform('Windows');
+    else if (ua.includes('Mac')) setPlatform('macOS');
+    else if (ua.includes('Linux')) setPlatform('Linux');
+    else setPlatform('Unknown');
+
+    const handleMove = (e: MouseEvent) => {
+      setMousePos({
+        x: e.clientX / window.innerWidth,
+        y: e.clientY / window.innerHeight,
+      });
     };
-    detectPlatform();
+    window.addEventListener('mousemove', handleMove);
+    return () => window.removeEventListener('mousemove', handleMove);
   }, []);
 
   const handleQuickScan = async () => {
@@ -38,91 +55,164 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const getPlatformIcon = (p: string) => {
     switch (p) {
-      case 'Windows':
-        return '⊞';
-      case 'macOS':
-        return '⌘';
-      case 'Linux':
-        return '🐧';
-      default:
-        return '💻';
+      case 'Windows': return '⊞';
+      case 'macOS': return '⌘';
+      case 'Linux': return '🐧';
+      default: return '💻';
     }
   };
 
+  // 3D parallax transform based on cursor position
+  const parallaxStyle = {
+    transform: `rotateY(${(mousePos.x - 0.5) * 8}deg) rotateX(${(mousePos.y - 0.5) * -6}deg)`,
+    transition: 'transform 0.2s ease-out',
+  };
+
   return (
-    <div className="relative w-full min-h-screen bg-gray-950 overflow-hidden">
-      <div className="absolute inset-0 z-0">
+    <div className="relative w-full min-h-screen overflow-hidden grid-bg" style={{ background: 'var(--blue-deep)' }}>
+      {/* Animated Squares background */}
+      <div className="absolute inset-0 z-0 opacity-40">
         <Squares
           direction="diagonal"
-          speed={0.3}
-          borderColor="#1a1a2e"
-          squareSize={50}
-          hoverFillColor="#16213e"
+          speed={0.25}
+          borderColor="rgba(59,130,246,0.08)"
+          squareSize={60}
+          hoverFillColor="rgba(30,64,175,0.15)"
         />
       </div>
 
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <div className="flex justify-end gap-4 px-6 pt-6">
-          <button
-            type="button"
-            onClick={onViewHistory}
-            className="text-sm text-indigo-400 hover:text-indigo-300"
+      {/* Floating orbs */}
+      <div className="orb orb-blue" style={{ width: 500, height: 500, top: '-10%', left: '-10%', opacity: 0.25 }} />
+      <div className="orb orb-cyan" style={{ width: 400, height: 400, bottom: '5%', right: '-5%', opacity: 0.2, animationDelay: '2s' }} />
+      <div className="orb orb-purple" style={{ width: 350, height: 350, top: '30%', right: '15%', opacity: 0.15, animationDelay: '4s' }} />
+
+      {/* Hero glow rings */}
+      <div className="hero-glow-ring" />
+      <div className="hero-glow-ring" />
+      <div className="hero-glow-ring" />
+
+      {/* Nav */}
+      <div className="relative z-20 flex justify-between items-center px-8 pt-7">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg,#1e40af,#3b82f6)', boxShadow: '0 0 20px rgba(59,130,246,0.4)' }}>
+            <Activity size={16} className="text-white" />
+          </div>
+          <span className="font-bold text-white tracking-tight">DevHealth</span>
+        </div>
+        <button
+          type="button"
+          onClick={onViewHistory}
+          className="nav-link text-sm font-medium px-4 py-2"
+          data-hover
+        >
+          Scan History
+        </button>
+      </div>
+
+      {/* Main content */}
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 pb-16 pt-8"
+        ref={heroRef}>
+        <div
+          className="max-w-3xl w-full text-center scene-3d"
+          style={parallaxStyle}
+        >
+          {/* Badge */}
+          <div
+            className={`inline-flex items-center gap-2 mb-8 px-5 py-2.5 rounded-full glass-card animate-fade-in-up`}
+            style={{ animationDelay: '0ms', border: '1px solid rgba(59,130,246,0.25)' }}
           >
-            View history
-          </button>
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" style={{ boxShadow: '0 0 8px #34d399' }} />
+            <span className="text-sm text-blue-200 font-medium">Grok AI · Powered by xAI</span>
+          </div>
+
+          {/* Headline */}
+          <h1
+            className={`text-6xl md:text-7xl font-extrabold tracking-tight mb-6 leading-none animate-fade-in-up`}
+            style={{ animationDelay: '100ms' }}
+          >
+            <span className="text-white">Is your laptop</span>
+            <br />
+            <span className="gradient-text">ready to code?</span>
+          </h1>
+
+          {/* Sub */}
+          <p
+            className={`text-lg text-blue-200/70 mb-12 leading-relaxed max-w-xl mx-auto animate-fade-in-up`}
+            style={{ animationDelay: '200ms' }}
+          >
+            Describe your stack, scan your machine, and fix what&apos;s missing —
+            <br className="hidden sm:block" /> all in one AI-powered health report.
+          </p>
+
+          {/* CTA Buttons */}
+          <div
+            className={`flex flex-col sm:flex-row gap-4 justify-center mb-16 animate-fade-in-up`}
+            style={{ animationDelay: '300ms' }}
+          >
+            <button
+              type="button"
+              onClick={() => void handleQuickScan()}
+              disabled={isScanning}
+              className="btn-neon group flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl text-white font-semibold text-base animate-glow-pulse disabled:opacity-50 disabled:cursor-not-allowed"
+              data-hover
+            >
+              {isScanning ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Scanning...</span>
+                </>
+              ) : (
+                <>
+                  <Play size={20} className="group-hover:scale-110 transition-transform" />
+                  <span>Run Quick Scan</span>
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={onDescribeProject}
+              disabled={isScanning}
+              className="glass-card flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-blue-100 font-semibold text-base disabled:opacity-50 hover:text-white"
+              data-hover
+            >
+              Describe Project →
+            </button>
+          </div>
+
+          {/* Platform badge */}
+          {platform && (
+            <div
+              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl glass-card text-sm animate-fade-in-up`}
+              style={{ animationDelay: '400ms' }}
+            >
+              <span className="text-xl">{getPlatformIcon(platform)}</span>
+              <span className="text-blue-200/80 font-medium">Running on {platform}</span>
+            </div>
+          )}
         </div>
 
-        <div className="flex-1 flex items-center justify-center px-6 pb-16">
-          <div className="max-w-2xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full border border-gray-800 bg-gray-900/80 backdrop-blur-sm">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-sm text-gray-300 font-medium">Grok-powered</span>
+        {/* Feature cards */}
+        <div
+          className={`grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl w-full mt-16 animate-fade-in-up`}
+          style={{ animationDelay: '500ms' }}
+        >
+          {FEATURES.map((f, i) => (
+            <div
+              key={f.label}
+              className="glass-card tilt-card rounded-2xl p-4 flex flex-col gap-2"
+              style={{
+                animationDelay: `${500 + i * 80}ms`,
+                transform: `perspective(800px) rotateY(${(mousePos.x - 0.5) * 5}deg) rotateX(${(mousePos.y - 0.5) * -4}deg)`,
+                transition: 'transform 0.25s ease-out',
+              }}
+              data-hover
+            >
+              <div className="text-blue-400 mb-1">{f.icon}</div>
+              <div className="text-white font-semibold text-sm">{f.label}</div>
+              <div className="text-blue-200/50 text-xs">{f.desc}</div>
             </div>
-
-            <h1 className="text-5xl md:text-6xl font-bold text-white tracking-tight mb-4 leading-tight">
-              Is your laptop ready to code?
-            </h1>
-
-            <p className="text-lg text-gray-400 mb-12 leading-relaxed">
-              Describe your stack, scan your machine, fix what&apos;s missing.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-              <button
-                type="button"
-                onClick={() => void handleQuickScan()}
-                disabled={isScanning}
-                className="group relative px-8 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-indigo-500/50"
-              >
-                {isScanning ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Scanning...</span>
-                  </>
-                ) : (
-                  <>
-                    <Play size={20} />
-                    <span>Run Quick Scan</span>
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={onDescribeProject}
-                disabled={isScanning}
-                className="px-8 py-4 rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-semibold transition-all duration-300 border border-gray-700 disabled:opacity-50"
-              >
-                Describe Project
-              </button>
-            </div>
-
-            {platform && (
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 border border-gray-800">
-                <span className="text-xl">{getPlatformIcon(platform)}</span>
-                <span className="text-gray-400 text-sm font-medium">Running on {platform}</span>
-              </div>
-            )}
-          </div>
+          ))}
         </div>
       </div>
     </div>

@@ -10,8 +10,7 @@ export const ScoreRing: React.FC<ScoreRingProps> = ({ score }) => {
   useEffect(() => {
     let interval: NodeJS.Timeout;
     let current = 0;
-    const increment = Math.ceil(score / 50);
-
+    const increment = Math.ceil(score / 60);
     interval = setInterval(() => {
       current += increment;
       if (current >= score) {
@@ -20,74 +19,64 @@ export const ScoreRing: React.FC<ScoreRingProps> = ({ score }) => {
       } else {
         setDisplayScore(current);
       }
-    }, 20);
-
+    }, 18);
     return () => clearInterval(interval);
   }, [score]);
 
   const getColor = (s: number) => {
-    if (s >= 76) return '#10b981';
-    if (s >= 41) return '#eab308';
-    return '#ef4444';
+    if (s >= 76) return { stroke: '#10b981', glow: 'rgba(16,185,129,0.5)', label: 'Healthy', text: '#6ee7b7' };
+    if (s >= 41) return { stroke: '#eab308', glow: 'rgba(234,179,8,0.5)', label: 'Warning', text: '#fde047' };
+    return { stroke: '#ef4444', glow: 'rgba(239,68,68,0.5)', label: 'Critical', text: '#fca5a5' };
   };
 
-  const getLabel = (s: number) => {
-    if (s >= 76) return 'Healthy';
-    if (s >= 41) return 'Warning';
-    return 'Critical';
-  };
-
-  const color = getColor(displayScore);
-  const radius = 45;
+  const cfg = getColor(displayScore);
+  const radius = 50;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (displayScore / 100) * circumference;
 
   return (
-    <div className="flex flex-col items-center justify-center">
-      <div className="relative w-40 h-40">
-        <svg
-          width="160"
-          height="160"
-          viewBox="0 0 160 160"
-          className="transform -rotate-90"
-        >
-          {/* Background circle */}
+    <div className="score-ring-container flex flex-col items-center justify-center">
+      <div className="relative w-44 h-44">
+        {/* Outer glow ring */}
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: `radial-gradient(circle, ${cfg.glow.replace('0.5', '0.08')} 0%, transparent 70%)`,
+            animation: 'glow-pulse 2.5s ease-in-out infinite',
+          }}
+        />
+        <svg width="176" height="176" viewBox="0 0 176 176" className="transform -rotate-90">
+          {/* Track */}
+          <circle cx="88" cy="88" r={radius} stroke="rgba(59,130,246,0.1)" strokeWidth="10" fill="none" />
+          {/* Blue base ring */}
+          <circle cx="88" cy="88" r={radius} stroke="rgba(30,64,175,0.15)" strokeWidth="10" fill="none"
+            strokeDasharray={circumference} strokeDashoffset={0} />
+          {/* Score arc */}
           <circle
-            cx="80"
-            cy="80"
-            r={radius}
-            stroke="rgba(255,255,255,0.1)"
-            strokeWidth="8"
-            fill="none"
-          />
-          {/* Progress circle */}
-          <circle
-            cx="80"
-            cy="80"
-            r={radius}
-            stroke={color}
-            strokeWidth="8"
+            cx="88" cy="88" r={radius}
+            stroke={cfg.stroke}
+            strokeWidth="10"
             fill="none"
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
             strokeLinecap="round"
             style={{
-              transition: 'stroke-dashoffset 0.5s ease-out, stroke 0.5s ease-out',
-              filter: `drop-shadow(0 0 8px ${color}80)`
+              transition: 'stroke-dashoffset 0.5s cubic-bezier(0.23,1,0.32,1), stroke 0.5s ease-out',
+              filter: `drop-shadow(0 0 12px ${cfg.glow})`,
             }}
           />
         </svg>
         {/* Center content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-          <div className="text-5xl font-bold text-white">{displayScore}</div>
-          <div className="text-xs text-white/60 uppercase tracking-widest">
-            {getLabel(displayScore)}
+          <div className="text-5xl font-black" style={{ color: cfg.text, textShadow: `0 0 20px ${cfg.glow}` }}>
+            {displayScore}
+          </div>
+          <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: cfg.text, opacity: 0.7 }}>
+            {cfg.label}
           </div>
         </div>
       </div>
-      <div className="mt-6 text-center">
-        <p className="text-white/80 font-medium">Overall Health Score</p>
-      </div>
+      <p className="mt-5 text-blue-100/60 font-medium text-sm">Overall Health Score</p>
     </div>
   );
 };
