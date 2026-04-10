@@ -22,10 +22,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [isScanning, setIsScanning] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const heroRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const ua = navigator.userAgent;
     if (ua.includes('Windows')) setPlatform('Windows');
     else if (ua.includes('Mac')) setPlatform('macOS');

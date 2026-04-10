@@ -23,7 +23,7 @@ function formatDetail(errBody: unknown): string {
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(BASE + path, {
+  const res = await fetch(BASE_URL + path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -36,7 +36,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(BASE + path);
+  const res = await fetch(BASE_URL + path);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Request failed' }));
     throw new Error(formatDetail(err));

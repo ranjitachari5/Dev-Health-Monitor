@@ -12,92 +12,206 @@ Setting up a dev environment is manual, error-prone, and slow. **Dev-Health-Moni
 * **📊 Comprehensive Reporting:** Generates full system health reports and persists scan history in a local SQLite database (`dev_env_health.db`).
 * **💻 Terminal Emulation:** Real-time typewriter-style terminal output in the UI to monitor fix progress.
 
-## 📂 Project Structure Highlights
+## � Prerequisites
 
-### Backend (FastAPI + Python)
-* `core/scanner.py`: The interrogation engine—runs subprocesses to verify tool versions.
-* `core/ai_advisor.py`: The logic layer for intelligent environment recommendations.
-* `core/auto_fixer.py`: The bridge between the UI and the native OS repair scripts.
-* `main.py`: Entry point for the FastAPI server and Pydantic-validated API endpoints.
-
-### Frontend (React + TypeScript + Vite)
-* `src/components/ScoreRing.tsx`: High-impact visual representation of environment health.
-* `src/components/AIInsights.tsx`: Dedicated UI for AI-generated configuration advice.
-* `src/components/TerminalOutput.tsx`: Real-time feedback for backend execution.
-* `src/types/index.ts`: Strict TypeScript interfaces for zero-runtime-error data flow.
+- **Python 3.8+** (any version, no specific version required)
+- **Node.js 16+** and **npm**
+- **Git** (for cloning and version control)
 
 ## 🛠️ Quick Start
 
-### 1. Backend Setup
+### 1. Clone the Repository
+```bash
+git clone <repository-url>
+cd dev-health-monitor
+```
+
+### 2. Backend Setup
+```bash
+# Navigate to backend directory
+cd backend
+
+# Install Python dependencies
+pip install -r ../requirements.txt
+
+# Copy environment configuration
+cp .env.example .env
+
+# Edit .env file to add your GROQ API key (get from https://groq.com)
+# GROQ_API_KEY=your_api_key_here
+
+# Start the backend server
+python main.py
+```
+The backend will start on `http://localhost:8000`
+
+### 3. Frontend Setup (in a new terminal)
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install Node.js dependencies
+npm install
+
+# Start the development server
+npm run dev
+```
+The frontend will start on `http://localhost:5173`
+
+### 4. Access the Application
+Open your browser and go to: **http://localhost:5173**
+
+## 📂 Project Structure
+
+```
+dev-health-monitor/
+├── backend/                          # FastAPI Backend
+│   ├── core/                         # Core business logic
+│   │   ├── ai_advisor.py            # AI-powered environment analysis
+│   │   ├── auto_fixer.py            # Platform-specific fix execution
+│   │   ├── config_parser.py         # Configuration management
+│   │   ├── github_analyzer.py       # GitHub repository analysis
+│   │   └── scanner.py               # System tool scanning engine
+│   ├── scripts/                     # Cross-platform fix scripts
+│   │   ├── fix_path_vars.ps1        # Windows path fixes
+│   │   ├── fix_path_vars.sh         # Unix path fixes
+│   │   ├── install_deps.ps1         # Windows dependency installation
+│   │   └── install_deps.sh          # Unix dependency installation
+│   ├── .env.example                 # Environment variables template
+│   ├── config.json                  # Application configuration
+│   ├── database.py                  # Database connection & setup
+│   ├── main.py                      # FastAPI application entry point
+│   └── models.py                    # SQLModel database models
+│
+├── frontend/                         # React Frontend
+│   ├── src/
+│   │   ├── api/                     # API client functions
+│   │   │   └── client.ts            # Axios-based API client
+│   │   ├── components/              # React components
+│   │   │   ├── AIInsights.tsx       # AI recommendations display
+│   │   │   ├── DownloadModal.tsx    # Report download interface
+│   │   │   ├── LandingPage.tsx      # Welcome & quick scan page
+│   │   │   ├── ProjectInput.tsx     # Project description input
+│   │   │   ├── ScanDashboard.tsx    # Main results dashboard
+│   │   │   ├── ScanHistory.tsx      # Scan history viewer
+│   │   │   ├── ScanProgress.tsx     # Progress indicators
+│   │   │   ├── ScoreRing.tsx        # Circular health score display
+│   │   │   ├── Squares.tsx          # Animated background component
+│   │   │   ├── StackChips.tsx       # Technology stack display
+│   │   │   ├── SystemHealthReport.tsx # Health report component
+│   │   │   ├── TerminalOutput.tsx   # Terminal emulation
+│   │   │   ├── ToolCard.tsx         # Individual tool status cards
+│   │   │   └── ToolCard.tsx         # Individual tool status cards
+│   │   ├── types/                   # TypeScript type definitions
+│   │   │   └── index.ts             # All type interfaces
+│   │   ├── utils/                   # Utility functions
+│   │   │   └── reportGenerator.ts   # Report generation utilities
+│   │   ├── App.tsx                  # Main React application
+│   │   ├── index.css                # Global styles & Tailwind CSS
+│   │   └── main.tsx                 # React application entry point
+│   ├── .env.example                 # Frontend environment template
+│   ├── index.html                   # HTML template
+│   ├── package.json                 # Node.js dependencies & scripts
+│   ├── tailwind.config.js           # Tailwind CSS configuration
+│   ├── tsconfig.json                # TypeScript configuration
+│   ├── tsconfig.node.json           # Node.js TypeScript config
+│   ├── vite.config.ts               # Vite build configuration
+│   └── vercel.json                  # Vercel deployment config
+│
+├── requirements.txt                 # Python dependencies
+├── QUICK_START.md                   # Quick start guide
+├── FRONTEND_COMPLETE.md             # Frontend completion notes
+├── FRONTEND_DOCS_INDEX.md           # Frontend documentation index
+├── FRONTEND_FILE_INVENTORY.md       # Frontend file inventory
+├── FRONTEND_SETUP_COMPLETE.md       # Frontend setup completion
+└── README.md                        # This file
+```
+
+## 🔧 Development Commands
+
+### Backend
 ```bash
 cd backend
-python -m venv .venv
-# Windows: .venv\Scripts\activate | macOS/Linux: source .venv/bin/activate
-pip install -r ../requirements.txt
-cp .env.example .env  # Configure your AI keys here
-python main.py
-Dev-Health-Monitor/
-├── .gitattributes
-├── .gitignore
-├── .python-version
-├── backend/
-│   ├── __pycache__/
-│   │   ├── database.cpython-314.pyc
-│   │   ├── main.cpython-314.pyc
-│   │   └── models.cpython-314.pyc
-│   ├── .env.example
-│   ├── config.json
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── __pycache__/
-│   │   │   ├── __init__.cpython-313.pyc
-│   │   │   ├── __init__.cpython-314.pyc
-│   │   │   ├── ai_advisor.cpython-314.pyc
-│   │   │   ├── auto_fixer.cpython-313.pyc
-│   │   │   ├── auto_fixer.cpython-314.pyc
-│   │   │   ├── config_parser.cpython-313.pyc
-│   │   │   ├── config_parser.cpython-314.pyc
-│   │   │   ├── project_builder.cpython-313.pyc
-│   │   │   ├── scanner.cpython-313.pyc
-│   │   │   └── scanner.cpython-314.pyc
-│   │   ├── ai_advisor.py
-│   │   ├── auto_fixer.py
-│   │   ├── config_parser.py
-│   │   ├── github_analyzer.py
-│   │   └── scanner.py
-│   ├── database.py
-│   ├── dev_env_health.db
-│   ├── main.py
-│   ├── models.py
-│   └── scripts/
-│       ├── fix_path_vars.ps1
-│       ├── fix_path_vars.sh
-│       ├── install_deps.ps1
-│       └── install_deps.sh
-├── dev_env_health.db
-├── error.txt
-├── frontend/
-│   ├── .env.example
-│   ├── index.html
-│   ├── node_modules/
-│   │   ├── @types/
-│   │   │   ├── node/
-│   │   │   │   ├── README.md
-│   │   │   │   └── repl.d.ts
-│   │   │   └── react/
-│   │   │       └── README.md
-│   │   ├── any-promise/
-│   │   │   └── README.md
-│   │   ├── autoprefixer/
-│   │   │   └── README.md
-│   │   ├── axios/
-│   │   │   └── CHANGELOG.md
-│   │   ├── caniuse-lite/
-│   │   │   └── data/
-│   │   │       └── agents.js
-│   │   ├── function-bind/
-│   │   │   └── CHANGELOG.md
-│   │   ├── lucide-react/
+python main.py                    # Start development server
+python -m pytest                  # Run tests (if available)
+```
+
+### Frontend
+```bash
+cd frontend
+npm run dev                      # Start development server
+npm run build                    # Build for production
+npm run preview                  # Preview production build
+```
+
+## 🌐 API Endpoints
+
+The backend provides the following REST API endpoints:
+
+- `GET /` - API information and available endpoints
+- `GET /api/ping` - Health check
+- `POST /api/scan` - Perform environment scan
+- `POST /api/analyze-github` - Analyze GitHub repository
+- `GET /api/history` - Get scan history
+- `GET /api/scan/{id}` - Get specific scan results
+
+## 🔑 Configuration
+
+### Backend (.env)
+```env
+GROQ_API_KEY=your_groq_api_key_here
+DATABASE_URL=sqlite:///./dev_env_health.db
+```
+
+### Frontend (.env)
+```env
+# Optional: Override backend URL for production
+VITE_API_URL=http://localhost:8000
+```
+
+## 🏗️ Architecture
+
+### Backend Architecture
+- **FastAPI**: Modern Python web framework
+- **SQLModel**: SQLAlchemy + Pydantic for database models
+- **SQLite**: Local database for scan history
+- **GROQ AI**: AI-powered environment analysis
+
+### Frontend Architecture
+- **React 18**: Modern React with hooks
+- **TypeScript**: Type-safe JavaScript
+- **Vite**: Fast build tool and dev server
+- **Tailwind CSS**: Utility-first CSS framework
+- **Axios**: HTTP client for API calls
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📄 License
+
+This project is open source. See LICENSE file for details.
+
+## 🆘 Troubleshooting
+
+### Backend Issues
+- Ensure Python 3.8+ is installed
+- Check that all dependencies are installed: `pip install -r requirements.txt`
+- Verify GROQ API key is set in `.env`
+
+### Frontend Issues
+- Ensure Node.js 16+ is installed
+- Clear node_modules: `rm -rf node_modules && npm install`
+- Check that backend is running on port 8000
+
+### Port Conflicts
+- Backend runs on port 8000 by default
+- Frontend runs on port 5173 by default
+- Change ports in respective configuration files if needed
 │   │   │   └── dist/
 │   │   │       └── esm/
 │   │   │           ├── icons/
