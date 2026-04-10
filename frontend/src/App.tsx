@@ -3,9 +3,9 @@ import { LandingPage } from './components/LandingPage';
 import { ProjectInput } from './components/ProjectInput';
 import { ScanDashboard } from './components/ScanDashboard';
 import { ScanHistory } from './components/ScanHistory';
+import { Squares } from './components/Squares';
 import { runHealthScan, runScan } from './api/client';
 import type { AppView, HealthScanResponse, ScanResponse, ToolResult, ToolStatus } from './types';
-
 function mapHealthToScanResponse(h: HealthScanResponse): ScanResponse {
   const results: ToolResult[] = h.tools.map((t) => {
     let status: ToolStatus = 'missing';
@@ -43,121 +43,6 @@ function mapHealthToScanResponse(h: HealthScanResponse): ScanResponse {
   };
 }
 
-/* ─── Particle system ──────────────────────────────────────────────── */
-interface Particle {
-  x: number; y: number;
-  vx: number; vy: number;
-  radius: number;
-  alpha: number;
-  color: string;
-}
-
-function useParticles(canvasRef: React.RefObject<HTMLCanvasElement>) {
-  const mouseRef = useRef({ x: -9999, y: -9999 });
-  const particlesRef = useRef<Particle[]>([]);
-  const rafRef = useRef<number>(0);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const colors = ['#3b82f6', '#60a5fa', '#00d4ff', '#7c3aed', '#0891b2'];
-
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resize();
-    window.addEventListener('resize', resize);
-
-    // Seed particles
-    const seed = () => {
-      particlesRef.current = Array.from({ length: 80 }, () => ({
-        x: Math.random() * window.innerWidth,
-        y: Math.random() * window.innerHeight,
-        vx: (Math.random() - 0.5) * 0.4,
-        vy: (Math.random() - 0.5) * 0.4,
-        radius: Math.random() * 1.5 + 0.4,
-        alpha: Math.random() * 0.5 + 0.1,
-        color: colors[Math.floor(Math.random() * colors.length)],
-      }));
-    };
-    seed();
-
-    const onMouse = (e: MouseEvent) => {
-      mouseRef.current = { x: e.clientX, y: e.clientY };
-    };
-    window.addEventListener('mousemove', onMouse);
-
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const particles = particlesRef.current;
-
-      // Connect nearby particles + attract toward cursor
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
-
-        // Cursor attraction
-        const dx = mouseRef.current.x - p.x;
-        const dy = mouseRef.current.y - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 200 && dist > 0) {
-          const force = (200 - dist) / 200;
-          p.vx += (dx / dist) * force * 0.03;
-          p.vy += (dy / dist) * force * 0.03;
-        }
-
-        // Speed cap
-        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-        if (speed > 1.5) { p.vx = (p.vx / speed) * 1.5; p.vy = (p.vy / speed) * 1.5; }
-
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0) p.x = canvas.width;
-        if (p.x > canvas.width) p.x = 0;
-        if (p.y < 0) p.y = canvas.height;
-        if (p.y > canvas.height) p.y = 0;
-
-        // Draw connections
-        for (let j = i + 1; j < particles.length; j++) {
-          const q = particles[j];
-          const cdx = p.x - q.x;
-          const cdy = p.y - q.y;
-          const cdist = Math.sqrt(cdx * cdx + cdy * cdy);
-          if (cdist < 120) {
-            ctx.beginPath();
-            ctx.strokeStyle = `rgba(59,130,246,${0.12 * (1 - cdist / 120)})`;
-            ctx.lineWidth = 0.5;
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(q.x, q.y);
-            ctx.stroke();
-          }
-        }
-
-        // Draw particle
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.alpha;
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      }
-
-      rafRef.current = requestAnimationFrame(draw);
-    };
-
-    rafRef.current = requestAnimationFrame(draw);
-
-    return () => {
-      cancelAnimationFrame(rafRef.current);
-      window.removeEventListener('resize', resize);
-      window.removeEventListener('mousemove', onMouse);
-    };
-  }, [canvasRef]);
-}
 
 /* ─── Custom cursor ────────────────────────────────────────────────── */
 function useCursor(
@@ -223,10 +108,7 @@ function App() {
   // Cursor refs
   const dotRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
-  const particlesCanvasRef = useRef<HTMLCanvasElement>(null);
-
   useCursor(dotRef, ringRef);
-  useParticles(particlesCanvasRef);
 
   // Re-bind cursor interactives whenever view changes
   const rebindCursor = useCallback(() => {
@@ -297,61 +179,79 @@ function App() {
   };
 
   return (
-    <div className="w-full min-h-screen" style={{ background: 'var(--blue-deep)' }}>
+    <div className="w-full h-screen bg-[#1A1A1B] overflow-hidden flex flex-col items-center justify-center relative">
       {/* ── Global overlay layers ── */}
       <div className="cursor-dot" ref={dotRef} />
       <div className="cursor-ring" ref={ringRef} />
-      <div className="cursor-glow-layer" />
-      <canvas ref={particlesCanvasRef} className="particles-canvas" />
+      <div className="cursor-glow-layer pointer-events-none" />
 
-      {/* ── Views ── */}
-      {view === 'landing' && (
-        <LandingPage
-          onQuickScan={handleLandingQuickScan}
-          onDescribeProject={() => setView('input')}
-          onViewHistory={() => setView('history')}
-        />
-      )}
-
-      {view === 'input' && (
-        <div>
-          <div className="max-w-3xl mx-auto px-4 pt-4 flex justify-between items-center">
-            <button
-              type="button"
-              onClick={() => setView('landing')}
-              className="nav-link text-sm"
-            >
-              ← Home
-            </button>
-            <button
-              type="button"
-              onClick={() => setView('history')}
-              className="nav-link text-sm"
-            >
-              View history
-            </button>
-          </div>
-          <ProjectInput onScanStart={handleScan} />
+      {/* Container with soft shadow for premium feel */}
+      <div className="relative w-full h-full overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.2)] bg-black/20">
+        <div className="absolute inset-0 z-0">
+          <Squares 
+            speed={0.5} 
+            squareSize={40}
+            direction="diagonal" 
+            borderColor="#333"
+            hoverFillColor="#3b82f6"
+          />
         </div>
-      )}
 
-      {(view === 'scanning' || view === 'results') && (
-        <ScanDashboard
-          scanData={scanData}
-          isLoading={isLoading}
-          error={error}
-          onReset={handleReset}
-        />
-      )}
+        {/* ── Views ── */}
+        <div className="absolute inset-0 z-10 overflow-y-auto pointer-events-auto">
+          {view === 'landing' && (
+            <LandingPage
+              onQuickScan={handleLandingQuickScan}
+              onDescribeProject={() => setView('input')}
+              onViewHistory={() => setView('history')}
+            />
+          )}
 
-      {view === 'history' && (
-        <ScanHistory
-          onBack={() => setView('input')}
-          onSelectScan={(data) => {
-            void handleHistorySelect(data);
-          }}
-        />
-      )}
+          {view === 'input' && (
+            <div className="min-h-full py-10">
+              <div className="max-w-3xl mx-auto px-4 flex justify-between items-center mb-8">
+                <button
+                  type="button"
+                  onClick={() => setView('landing')}
+                  className="nav-link text-sm"
+                >
+                  ← Home
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView('history')}
+                  className="nav-link text-sm"
+                >
+                  View history
+                </button>
+              </div>
+              <ProjectInput onScanStart={handleScan} />
+            </div>
+          )}
+
+          {(view === 'scanning' || view === 'results') && (
+            <div className="min-h-full py-10">
+              <ScanDashboard
+                scanData={scanData}
+                isLoading={isLoading}
+                error={error}
+                onReset={handleReset}
+              />
+            </div>
+          )}
+
+          {view === 'history' && (
+            <div className="min-h-full py-10">
+              <ScanHistory
+                onBack={() => setView('input')}
+                onSelectScan={(data) => {
+                  void handleHistorySelect(data);
+                }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

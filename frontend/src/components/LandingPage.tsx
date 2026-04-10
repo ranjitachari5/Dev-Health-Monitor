@@ -1,7 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Play, Cpu, Zap, Shield, Activity } from 'lucide-react';
-import { Squares } from './Squares';
-
 interface LandingPageProps {
   onQuickScan: () => void | Promise<void>;
   onDescribeProject: () => void;
@@ -69,27 +67,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   };
 
   return (
-    <div className="relative w-full min-h-screen overflow-hidden grid-bg" style={{ background: 'var(--blue-deep)' }}>
-      {/* Animated Squares background */}
-      <div className="absolute inset-0 z-0 opacity-40">
-        <Squares
-          direction="diagonal"
-          speed={0.25}
-          borderColor="rgba(59,130,246,0.08)"
-          squareSize={60}
-          hoverFillColor="rgba(30,64,175,0.15)"
-        />
-      </div>
-
-      {/* Floating orbs */}
-      <div className="orb orb-blue" style={{ width: 500, height: 500, top: '-10%', left: '-10%', opacity: 0.25 }} />
-      <div className="orb orb-cyan" style={{ width: 400, height: 400, bottom: '5%', right: '-5%', opacity: 0.2, animationDelay: '2s' }} />
-      <div className="orb orb-purple" style={{ width: 350, height: 350, top: '30%', right: '15%', opacity: 0.15, animationDelay: '4s' }} />
-
-      {/* Hero glow rings */}
-      <div className="hero-glow-ring" />
-      <div className="hero-glow-ring" />
-      <div className="hero-glow-ring" />
+    <div className="relative w-full min-h-full flex flex-col">
 
       {/* Nav */}
       <div className="relative z-20 flex justify-between items-center px-8 pt-7">
@@ -111,7 +89,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </div>
 
       {/* Main content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 pb-16 pt-8"
+      <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-6 pb-16 pt-8"
         ref={heroRef}>
         <div
           className="max-w-3xl w-full text-center scene-3d"

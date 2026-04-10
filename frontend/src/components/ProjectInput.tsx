@@ -122,12 +122,8 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({ onScanStart }) => {
   ];
 
   return (
-    <div className="min-h-screen text-white px-4 py-10" style={{ background: 'var(--blue-deep)' }}>
-      {/* Orb decorations */}
-      <div className="orb orb-blue fixed" style={{ width: 400, height: 400, top: 0, left: 0, opacity: 0.15, zIndex: 0 }} />
-      <div className="orb orb-purple fixed" style={{ width: 300, height: 300, bottom: '10%', right: '5%', opacity: 0.12, zIndex: 0, animationDelay: '3s' }} />
-
-      <div className="max-w-3xl mx-auto relative z-10">
+    <div className="min-h-full flex flex-col text-white">
+      <div className="max-w-3xl mx-auto relative z-10 w-full">
         {/* Header */}
         <div className="mb-10 animate-fade-in-up">
           <h1 className="text-4xl font-extrabold text-white mb-2">

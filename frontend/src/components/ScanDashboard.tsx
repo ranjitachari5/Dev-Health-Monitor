@@ -33,7 +33,7 @@ export const ScanDashboard: React.FC<ScanDashboardProps> = ({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen text-white px-4 py-8" style={{ background: 'var(--blue-deep)' }}>
+      <div className="min-h-full flex flex-col text-white px-4">
         <div className="max-w-3xl mx-auto">
           {/* Header skeleton */}
           <div className="flex justify-between items-center mb-8">
@@ -90,8 +90,7 @@ export const ScanDashboard: React.FC<ScanDashboardProps> = ({
 
   if (error) {
     return (
-      <div className="min-h-screen text-white px-4 py-8 flex items-center justify-center"
-        style={{ background: 'var(--blue-deep)' }}>
+      <div className="min-h-full flex-1 flex flex-col items-center justify-center text-white px-4">
         <div className="max-w-lg w-full glass-card rounded-2xl p-8 text-center">
           <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
             style={{ background: 'rgba(185,28,28,0.2)', border: '1px solid rgba(239,68,68,0.3)', boxShadow: '0 0 30px rgba(239,68,68,0.15)' }}>
@@ -119,7 +118,7 @@ export const ScanDashboard: React.FC<ScanDashboardProps> = ({
   const ts = scanData.timestamp ? new Date(scanData.timestamp).toLocaleString() : null;
 
   return (
-    <div className="min-h-screen text-white pb-28" style={{ background: 'var(--blue-deep)' }}>
+    <div className="min-h-full flex flex-col text-white pb-28">
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Top bar */}
         <div className="flex justify-between items-center mb-6">
