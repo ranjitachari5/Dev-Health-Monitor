@@ -211,15 +211,23 @@ async def resolve_dependencies(
 
     async def _call(extra_user_suffix: str = "") -> str:
         user_content = user_message + extra_user_suffix
-        resp = await client.chat.completions.create(
-            model=config["model"],
-            temperature=0,
-            messages=[
-                {"role": "system", "content": RESOLVE_SYSTEM_PROMPT},
-                {"role": "user", "content": user_content},
-            ],
-        )
-        return (resp.choices[0].message.content or "").strip()
+        try:
+            resp = await client.chat.completions.create(
+                model=config["model"],
+                temperature=0,
+                messages=[
+                    {"role": "system", "content": RESOLVE_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_content},
+                ],
+            )
+            return (resp.choices[0].message.content or "").strip()
+        except Exception as e:
+            err_msg = str(e)
+            if "AuthenticationError" in repr(e) or "401" in str(e):
+                err_msg = "Invalid AI API Key. Please check your key in settings."
+            elif "RateLimitError" in repr(e) or "429" in str(e):
+                err_msg = "AI Rate limit exceeded. Please try again later or check your billing account."
+            raise HTTPException(status_code=400, detail=f"AI API Error: {err_msg}") from e
 
     content = await _call()
     raw_json = _extract_json_object(content) or content

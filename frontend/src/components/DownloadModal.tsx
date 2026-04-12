@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { ToolCategory, ToolResult } from '../types';
 import { getInstallCommand, type InstallCommandResponse } from '../api/client';
 import { Terminal, Copy, Check, Loader2, AlertCircle } from 'lucide-react';
+import { formatValidUrl } from '../utils/urlFormatter';
 
 interface DownloadModalProps {
   isOpen: boolean;
@@ -40,6 +41,8 @@ const ToolDownloadRow: React.FC<{ tool: ToolResult }> = ({ tool }) => {
   const [installInfo, setInstallInfo] = useState<InstallCommandResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const validInstallUrl = formatValidUrl(tool.install_url);
 
   const handleFetchCommand = async () => {
     setLoading(true);
@@ -122,9 +125,9 @@ const ToolDownloadRow: React.FC<{ tool: ToolResult }> = ({ tool }) => {
           {installInfo.notes && (
              <p className="text-[11px] text-gray-400 leading-snug break-words pr-2">{installInfo.notes}</p>
           )}
-          {tool.install_url && (
+          {validInstallUrl && (
             <a
-              href={tool.install_url}
+              href={validInstallUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-[11px] text-blue-400 hover:underline mt-0.5 self-start"
