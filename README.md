@@ -1,292 +1,212 @@
-# 🩺 Dev-Health-Monitor
+# 🩺 Dev Health Monitor
 
-> **"Is your laptop ready to code?"** > A high-performance, AI-augmented diagnostic suite that ensures your local development environment is perfectly synchronized with your project requirements.
+A full-stack AI-powered developer environment health checker. Describe your tech stack, and let the app scan your machine for missing tools, outdated versions, and configuration issues — then get actionable AI-generated recommendations to fix them.
 
-## 🚀 The Mission
-Setting up a dev environment is manual, error-prone, and slow. **Dev-Health-Monitor** automates this by scanning your OS, analyzing your project needs via AI and GitHub integration, and providing automated, cross-platform remediation scripts.
+---
 
-## 🧠 Advanced Features
-* **🤖 AI Advisor:** Uses the `ai_advisor.py` core to interpret project requirements and suggest the optimal stack configuration.
-* **🐙 GitHub Analyzer:** Integrates `github_analyzer.py` to check for repository-specific dependencies and environment standards.
-* **🌍 Multi-Platform Fixes:** A robust `scripts/` library featuring both PowerShell (`.ps1`) and Shell (`.sh`) scripts for true Windows, macOS, and Linux compatibility.
-* **📊 Comprehensive Reporting:** Generates full system health reports and persists scan history in a local SQLite database (`dev_env_health.db`).
-* **💻 Terminal Emulation:** Real-time typewriter-style terminal output in the UI to monitor fix progress.
+## ✨ Features
 
-## � Prerequisites
+- 🤖 **AI-Powered Analysis** — Supports OpenAI (ChatGPT), Anthropic (Claude), Google Gemini, Groq (LLaMA), or any OpenAI-compatible endpoint
+- 🔑 **Bring Your Own API Key** — Enter your key directly in the app UI, or use the server default
+- 🖥 **Real Machine Scan** — Detects Python, Node.js, Docker, Git, databases, and 25+ more tools via subprocess
+- 📊 **Health Score Dashboard** — Overall readiness score with per-tool status cards
+- 🛠 **Auto-Fix Suggestions** — AI recommends exact install commands for your OS
+- 📂 **Multiple Input Modes** — Chat, local folder scan, GitHub repo URL, or pre-built templates
+- 🕓 **Scan History** — Persistent SQLite database of past scans
 
-- **Python 3.8+** (any version, no specific version required)
-- **Node.js 16+** and **npm**
-- **Git** (for cloning and version control)
+---
 
-## 🛠️ Quick Start
+## 🗂 Project Structure
+
+```
+Dev Health Monitor/
+├── backend/                  # FastAPI Python backend
+│   ├── main.py               # API routes
+│   ├── core/
+│   │   ├── ai_advisor.py     # Multi-provider AI integration
+│   │   ├── scanner.py        # Real subprocess-based tool detection
+│   │   ├── auto_fixer.py     # Fix suggestions
+│   │   └── config_parser.py  # Config loader
+│   ├── models.py             # SQLModel DB models
+│   ├── database.py           # DB setup
+│   ├── config.json           # AI provider defaults
+│   └── .env                  # Your secret API key (not committed)
+├── frontend/                 # React + Vite + TypeScript frontend
+│   └── src/
+│       ├── App.tsx
+│       ├── api/client.ts     # Axios/fetch with AI header injection
+│       ├── components/
+│       │   ├── ApiKeyModal.tsx   # ⚙ AI provider configurator
+│       │   ├── LandingPage.tsx
+│       │   ├── ProjectInput.tsx
+│       │   └── ScanDashboard.tsx
+│       └── types/
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- **Python 3.9+** — [python.org](https://python.org)
+- **Node.js 18+** — [nodejs.org](https://nodejs.org)
+- **npm** (comes with Node.js)
+
+---
 
 ### 1. Clone the Repository
+
 ```bash
-git clone <repository-url>
-cd dev-health-monitor
+git clone https://github.com/ranjitachari5/Dev-Health-Monitor.git
+cd Dev-Health-Monitor
 ```
+
+---
 
 ### 2. Backend Setup
-```bash
-# Navigate to backend directory
-cd backend
 
-# Install Python dependencies
+```bash
+cd backend
+```
+
+#### Install Python dependencies
+
+```bash
 pip install -r ../requirements.txt
-
-# Copy environment configuration
-cp .env.example .env
-
-# Edit .env file to add your GROQ API key (get from https://groq.com)
-# GROQ_API_KEY=your_api_key_here
-
-# Start the backend server
-python main.py
-```
-The backend will start on `http://localhost:8000`
-
-### 3. Frontend Setup (in a new terminal)
-```bash
-# Navigate to frontend directory
-cd frontend
-
-# Install Node.js dependencies
-npm install
-
-# Start the development server
-npm run dev
-```
-The frontend will start on `http://localhost:5173`
-
-### 4. Access the Application
-Open your browser and go to: **http://localhost:5173**
-
-## 📂 Project Structure
-
-```
-dev-health-monitor/
-├── backend/                          # FastAPI Backend
-│   ├── core/                         # Core business logic
-│   │   ├── ai_advisor.py            # AI-powered environment analysis
-│   │   ├── auto_fixer.py            # Platform-specific fix execution
-│   │   ├── config_parser.py         # Configuration management
-│   │   ├── github_analyzer.py       # GitHub repository analysis
-│   │   └── scanner.py               # System tool scanning engine
-│   ├── scripts/                     # Cross-platform fix scripts
-│   │   ├── fix_path_vars.ps1        # Windows path fixes
-│   │   ├── fix_path_vars.sh         # Unix path fixes
-│   │   ├── install_deps.ps1         # Windows dependency installation
-│   │   └── install_deps.sh          # Unix dependency installation
-│   ├── .env.example                 # Environment variables template
-│   ├── config.json                  # Application configuration
-│   ├── database.py                  # Database connection & setup
-│   ├── main.py                      # FastAPI application entry point
-│   └── models.py                    # SQLModel database models
-│
-├── frontend/                         # React Frontend
-│   ├── src/
-│   │   ├── api/                     # API client functions
-│   │   │   └── client.ts            # Axios-based API client
-│   │   ├── components/              # React components
-│   │   │   ├── AIInsights.tsx       # AI recommendations display
-│   │   │   ├── DownloadModal.tsx    # Report download interface
-│   │   │   ├── LandingPage.tsx      # Welcome & quick scan page
-│   │   │   ├── ProjectInput.tsx     # Project description input
-│   │   │   ├── ScanDashboard.tsx    # Main results dashboard
-│   │   │   ├── ScanHistory.tsx      # Scan history viewer
-│   │   │   ├── ScanProgress.tsx     # Progress indicators
-│   │   │   ├── ScoreRing.tsx        # Circular health score display
-│   │   │   ├── Squares.tsx          # Animated background component
-│   │   │   ├── StackChips.tsx       # Technology stack display
-│   │   │   ├── SystemHealthReport.tsx # Health report component
-│   │   │   ├── TerminalOutput.tsx   # Terminal emulation
-│   │   │   ├── ToolCard.tsx         # Individual tool status cards
-│   │   │   └── ToolCard.tsx         # Individual tool status cards
-│   │   ├── types/                   # TypeScript type definitions
-│   │   │   └── index.ts             # All type interfaces
-│   │   ├── utils/                   # Utility functions
-│   │   │   └── reportGenerator.ts   # Report generation utilities
-│   │   ├── App.tsx                  # Main React application
-│   │   ├── index.css                # Global styles & Tailwind CSS
-│   │   └── main.tsx                 # React application entry point
-│   ├── .env.example                 # Frontend environment template
-│   ├── index.html                   # HTML template
-│   ├── package.json                 # Node.js dependencies & scripts
-│   ├── tailwind.config.js           # Tailwind CSS configuration
-│   ├── tsconfig.json                # TypeScript configuration
-│   ├── tsconfig.node.json           # Node.js TypeScript config
-│   ├── vite.config.ts               # Vite build configuration
-│   └── vercel.json                  # Vercel deployment config
-│
-├── requirements.txt                 # Python dependencies
-├── QUICK_START.md                   # Quick start guide
-├── FRONTEND_COMPLETE.md             # Frontend completion notes
-├── FRONTEND_DOCS_INDEX.md           # Frontend documentation index
-├── FRONTEND_FILE_INVENTORY.md       # Frontend file inventory
-├── FRONTEND_SETUP_COMPLETE.md       # Frontend setup completion
-└── README.md                        # This file
 ```
 
-## 🔧 Development Commands
+#### Create your `.env` file
 
-### Backend
-```bash
-cd backend
-python main.py                    # Start development server
-python -m pytest                  # Run tests (if available)
-```
+Create a file at `backend/.env` with your default server-side AI API key:
 
-### Frontend
-```bash
-cd frontend
-npm run dev                      # Start development server
-npm run build                    # Build for production
-npm run preview                  # Preview production build
-```
-
-## 🌐 API Endpoints
-
-The backend provides the following REST API endpoints:
-
-- `GET /` - API information and available endpoints
-- `GET /api/ping` - Health check
-- `POST /api/scan` - Perform environment scan
-- `POST /api/analyze-github` - Analyze GitHub repository
-- `GET /api/history` - Get scan history
-- `GET /api/scan/{id}` - Get specific scan results
-
-## 🔑 Configuration
-
-### Backend (.env)
 ```env
-GROQ_API_KEY=your_groq_api_key_here
+AI_API_KEY=your_api_key_here
 DATABASE_URL=sqlite:///./dev_env_health.db
 ```
 
-### Frontend (.env)
-```env
-# Optional: Override backend URL for production
-VITE_API_URL=http://localhost:8000
+> **Note:** This key is used as a fallback when no key is entered in the UI.  
+> Supported key formats are auto-detected:
+> - `sk-…` → OpenAI (ChatGPT)
+> - `sk-ant-…` → Anthropic (Claude)
+> - `AIza…` → Google Gemini
+> - `gsk_…` → Groq (LLaMA)
+
+#### (Optional) Configure AI defaults in `config.json`
+
+```json
+{
+  "ai": {
+    "provider": "openai",
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-4o-mini",
+    "api_key_env_var": "AI_API_KEY"
+  }
+}
 ```
 
-## 🏗️ Architecture
+#### Start the backend server
 
-### Backend Architecture
-- **FastAPI**: Modern Python web framework
-- **SQLModel**: SQLAlchemy + Pydantic for database models
-- **SQLite**: Local database for scan history
-- **GROQ AI**: AI-powered environment analysis
+```bash
+python -m uvicorn main:app --reload --port 8000
+```
 
-### Frontend Architecture
-- **React 18**: Modern React with hooks
-- **TypeScript**: Type-safe JavaScript
-- **Vite**: Fast build tool and dev server
-- **Tailwind CSS**: Utility-first CSS framework
-- **Axios**: HTTP client for API calls
+Backend will be available at: **http://localhost:8000**  
+Interactive API docs: **http://localhost:8000/docs**
 
-## 🤝 Contributing
+---
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+### 3. Frontend Setup
+
+Open a **new terminal**:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend will be available at: **http://localhost:5173**  
+(If port is in use, Vite will try 5174, 5175, etc.)
+
+---
+
+## 🔑 Configuring Your AI Key in the App
+
+You don't need to touch `.env` at all if you prefer to use the in-app key manager:
+
+1. Open the app at **http://localhost:5173**
+2. Click the **⚙ AI Setup** button in the top-right corner of any screen
+3. Select your provider (OpenAI, Anthropic, Gemini, Groq, or Custom)
+4. Paste your API key — the provider and endpoint are auto-detected
+5. Choose your preferred model from the dropdown
+6. Click **Save Configuration**
+
+Your key is stored **only in your browser's localStorage** — it never sent to our servers, only directly to the AI provider per-request via a secure header.
+
+### Supported Providers
+
+| Provider | Key Prefix | Example Model |
+|---|---|---|
+| OpenAI (ChatGPT) | `sk-…` | `gpt-4o`, `gpt-4o-mini` |
+| Anthropic (Claude) | `sk-ant-…` | `claude-3-5-sonnet-20241022` |
+| Google Gemini | `AIza…` | `gemini-1.5-flash`, `gemini-2.0-flash` |
+| Groq (LLaMA) | `gsk_…` | `llama-3.3-70b-versatile` |
+| Custom (OpenAI-compat) | any | your custom model |
+
+---
+
+## 🛑 Stopping the Servers
+
+Press `Ctrl + C` in each terminal to stop the backend and frontend.
+
+---
+
+## 🧪 API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/ping` | Health check |
+| `GET` | `/api/health` | Full machine tool scan |
+| `POST` | `/api/scan` | AI-powered stack scan |
+| `POST` | `/api/analyze` | Analyze a project description |
+| `POST` | `/api/analyze-github` | Analyze a GitHub repo URL |
+| `GET` | `/api/history` | Scan history |
+| `GET` | `/api/scan/{id}` | Get scan by ID |
+| `POST` | `/api/fix/{tool}` | Trigger auto-fix |
+| `GET` | `/api/install-command/{tool}` | Get install command for a tool |
+
+All AI endpoints accept optional headers:
+- `X-AI-Api-Key` — overrides the server default key
+- `X-AI-Base-Url` — overrides the AI provider base URL
+- `X-AI-Model` — overrides the model name
+
+---
+
+## 🔧 Troubleshooting
+
+### `401 Unauthorized` from AI provider
+- Your API key is invalid or expired.
+- Click **⚙ AI Setup** and re-enter a valid key.
+
+### `uvicorn` not found
+```bash
+python -m uvicorn main:app --reload --port 8000
+```
+
+### CORS errors in browser
+- Make sure the backend is running on port `8000`.
+- The frontend must run on one of: `5173`, `5174`, `3000`.
+
+### Module not found (Python)
+```bash
+pip install -r requirements.txt
+```
+
+---
 
 ## 📄 License
 
-This project is open source. See LICENSE file for details.
-
-## 🆘 Troubleshooting
-
-### Backend Issues
-- Ensure Python 3.8+ is installed
-- Check that all dependencies are installed: `pip install -r requirements.txt`
-- Verify GROQ API key is set in `.env`
-
-### Frontend Issues
-- Ensure Node.js 16+ is installed
-- Clear node_modules: `rm -rf node_modules && npm install`
-- Check that backend is running on port 8000
-
-### Port Conflicts
-- Backend runs on port 8000 by default
-- Frontend runs on port 5173 by default
-- Change ports in respective configuration files if needed
-│   │   │   └── dist/
-│   │   │       └── esm/
-│   │   │           ├── icons/
-│   │   │           │   ├── circle-off.js
-│   │   │           │   ├── cookie.js
-│   │   │           │   ├── expand.js
-│   │   │           │   ├── film.js
-│   │   │           │   ├── gallery-thumbnails.js
-│   │   │           │   ├── haze.js
-│   │   │           │   ├── line-chart.js
-│   │   │           │   ├── message-square-dashed.js
-│   │   │           │   ├── monitor-dot.js
-│   │   │           │   ├── notepad-text.js
-│   │   │           │   ├── percent-circle.js
-│   │   │           │   ├── printer.js
-│   │   │           │   ├── sailboat.js
-│   │   │           │   ├── settings-2.js
-│   │   │           │   ├── sofa.js
-│   │   │           │   ├── subtitles.js
-│   │   │           │   ├── traffic-cone.js
-│   │   │           │   └── user-search.js
-│   │   │           └── lucide-react.js
-│   │   ├── postcss-selector-parser/
-│   │   │   └── API.md
-│   │   ├── resolve/
-│   │   │   ├── async.js
-│   │   │   └── index.js
-│   │   ├── source-map-js/
-│   │   │   └── README.md
-│   │   ├── tailwindcss/
-│   │   │   ├── base.css
-│   │   │   └── colors.d.ts
-│   │   ├── tinyglobby/
-│   │   │   └── README.md
-│   │   └── typescript/
-│   │       └── README.md
-│   ├── package-lock.json
-│   ├── package.json
-│   ├── postcss.config.js
-│   ├── README.md
-│   ├── src/
-│   │   ├── api/
-│   │   │   └── client.ts
-│   │   ├── App.tsx
-│   │   ├── components/
-│   │   │   ├── AIInsights.tsx
-│   │   │   ├── DownloadModal.tsx
-│   │   │   ├── LandingPage.tsx
-│   │   │   ├── ProjectInput.tsx
-│   │   │   ├── ScanDashboard.tsx
-│   │   │   ├── ScanHistory.tsx
-│   │   │   ├── ScanProgress.tsx
-│   │   │   ├── ScoreRing.tsx
-│   │   │   ├── Squares.tsx
-│   │   │   ├── StackChips.tsx
-│   │   │   ├── SystemHealthReport.tsx
-│   │   │   ├── TerminalOutput.tsx
-│   │   │   └── ToolCard.tsx
-│   │   ├── index.css
-│   │   ├── main.tsx
-│   │   ├── types/
-│   │   │   └── index.ts
-│   │   └── utils/
-│   │       └── reportGenerator.ts
-│   ├── tailwind.config.js
-│   ├── tsconfig.json
-│   ├── tsconfig.node.json
-│   ├── vercel.json
-│   └── vite.config.ts
-├── FRONTEND_COMPLETE.md
-├── FRONTEND_DOCS_INDEX.md
-├── FRONTEND_FILE_INVENTORY.md
-├── FRONTEND_SETUP_COMPLETE.md
-├── package-lock.json
-├── push_error.txt
-├── QUICK_START.md
-├── render.yaml
-└── requirements.txt
+MIT © Dev Health Monitor

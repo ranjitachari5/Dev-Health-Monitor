@@ -13,33 +13,135 @@ from .config_parser import get_config_value
 
 load_dotenv()
 
-# Groq API (api.groq.com) - OpenAI-compatible, uses gsk_... keys
-# Free tier supports llama-3.3-70b-versatile, llama-3.1-8b-instant, gemma2-9b-it, etc.
-GROQ_BASE_URL = "https://api.groq.com/openai/v1"
-GROQ_MODEL = "llama-3.3-70b-versatile"  # Free model on Groq free tier
 
-# Legacy aliases for backward compatibility
-GROK_BASE_URL = GROQ_BASE_URL
-GROK_MODEL = GROQ_MODEL
+# ---------------------------------------------------------------------------
+# Provider detection helpers
+# ---------------------------------------------------------------------------
+
+def detect_provider_from_key(api_key: str) -> Dict[str, str]:
+    """
+    Auto-detect the AI provider from the API key prefix and return
+    sensible defaults (base_url, model).
+    Supports: OpenAI, Groq, Anthropic, Google Gemini, DeepSeek, and custom.
+    """
+    key = (api_key or "").strip()
+
+    # Anthropic: sk-ant-...
+    if key.startswith("sk-ant-"):
+        return {
+            "provider": "anthropic",
+            "base_url": "https://api.anthropic.com/v1",
+            "model": "claude-3-5-sonnet-20241022",
+        }
+
+    # Google Gemini: AIza...
+    if key.startswith("AIza"):
+        return {
+            "provider": "gemini",
+            "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+            "model": "gemini-2.0-flash",
+        }
+
+    # Groq: gsk_...
+    if key.startswith("gsk_"):
+        return {
+            "provider": "groq",
+            "base_url": "https://api.groq.com/openai/v1",
+            "model": "llama-3.3-70b-versatile",
+        }
+
+    # DeepSeek: starting with "sk-" but different — check env/config later
+    # OpenAI: sk-proj-... or sk-...
+    if key.startswith("sk-"):
+        return {
+            "provider": "openai",
+            "base_url": "https://api.openai.com/v1",
+            "model": "gpt-4o-mini",
+        }
+
+    # Unknown — return empty, caller falls back to config
+    return {}
 
 
-def _grok_sync_client() -> Optional[OpenAI]:
-    # Support both GROQ_API_KEY (Groq) and GROK_API_KEY (legacy) env vars
-    api_key = os.getenv("GROQ_API_KEY") or os.getenv("GROK_API_KEY")
-    if not api_key:
+def _get_ai_config(
+    dynamic_key: Optional[str] = None,
+    dynamic_base_url: Optional[str] = None,
+    dynamic_model: Optional[str] = None,
+) -> Dict[str, str]:
+    """
+    Build the final AI config by merging dynamic (per-request) values with
+    the static config.json / .env defaults.
+
+    Priority: dynamic > config.json > sensible default
+    """
+    # --- Static config.json defaults ---
+    cfg_provider = str(get_config_value("ai.provider", "openai") or "openai")
+    cfg_base_url = str(get_config_value("ai.base_url", "https://api.openai.com/v1") or "https://api.openai.com/v1")
+    cfg_model = str(get_config_value("ai.model", "gpt-4o-mini") or "gpt-4o-mini")
+    cfg_key_env = str(get_config_value("ai.api_key_env_var", "AI_API_KEY") or "AI_API_KEY")
+    env_api_key = os.getenv(cfg_key_env) or ""
+
+    # --- Resolve the final API key ---
+    final_key = (dynamic_key or "").strip() or env_api_key
+
+    # --- If a dynamic key is provided, auto-detect provider ---
+    dynamic_detected: Dict[str, str] = {}
+    if (dynamic_key or "").strip():
+        dynamic_detected = detect_provider_from_key(dynamic_key.strip())
+
+    # --- Merge priority ---
+    final_provider = dynamic_detected.get("provider") or cfg_provider
+    # base_url: explicit override > auto-detected > config
+    final_base_url = (
+        (dynamic_base_url or "").strip()
+        or dynamic_detected.get("base_url", "")
+        or cfg_base_url
+    )
+    # model: explicit override > auto-detected > config
+    final_model = (
+        (dynamic_model or "").strip()
+        or dynamic_detected.get("model", "")
+        or cfg_model
+    )
+
+    return {
+        "provider": final_provider,
+        "base_url": final_base_url,
+        "model": final_model,
+        "api_key": final_key,
+        "api_key_env_var": cfg_key_env,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Client factories
+# ---------------------------------------------------------------------------
+
+def _ai_sync_client(
+    dynamic_key: Optional[str] = None,
+    dynamic_base_url: Optional[str] = None,
+    dynamic_model: Optional[str] = None,
+) -> Optional[OpenAI]:
+    config = _get_ai_config(dynamic_key, dynamic_base_url, dynamic_model)
+    if not config["api_key"]:
         return None
-    return OpenAI(api_key=api_key, base_url=GROQ_BASE_URL)
+    return OpenAI(api_key=config["api_key"], base_url=config["base_url"])
 
 
-def _grok_async_client() -> Optional[AsyncOpenAI]:
-    api_key = os.getenv("GROQ_API_KEY") or os.getenv("GROK_API_KEY")
-    if not api_key:
+def _ai_async_client(
+    dynamic_key: Optional[str] = None,
+    dynamic_base_url: Optional[str] = None,
+    dynamic_model: Optional[str] = None,
+) -> Optional[AsyncOpenAI]:
+    config = _get_ai_config(dynamic_key, dynamic_base_url, dynamic_model)
+    if not config["api_key"]:
         return None
-    return AsyncOpenAI(api_key=api_key, base_url=GROQ_BASE_URL)
+    return AsyncOpenAI(api_key=config["api_key"], base_url=config["base_url"])
 
 
-grok_client = _grok_async_client()
-
+# ---------------------------------------------------------------------------
+# JSON extraction helper
+# ---------------------------------------------------------------------------
 
 def _extract_json_object(text: str) -> Optional[str]:
     if not text:
@@ -50,6 +152,10 @@ def _extract_json_object(text: str) -> Optional[str]:
     m = re.search(r"\{[\s\S]*\}", text)
     return m.group(0) if m else None
 
+
+# ---------------------------------------------------------------------------
+# System prompts
+# ---------------------------------------------------------------------------
 
 RESOLVE_SYSTEM_PROMPT = """You are a developer environment expert. The user will describe their project or paste a list of detected tools. Your job is to return ONLY a valid JSON object — no markdown fences, no explanation, no preamble. The JSON must strictly follow this schema:
 
@@ -79,12 +185,23 @@ CRITICAL RULES you must follow:
 """
 
 
-async def resolve_dependencies(user_input: str, detected_tools: list[str]) -> dict:
-    client = grok_client or _grok_async_client()
+# ---------------------------------------------------------------------------
+# Public AI functions
+# ---------------------------------------------------------------------------
+
+async def resolve_dependencies(
+    user_input: str,
+    detected_tools: list[str],
+    dynamic_key: Optional[str] = None,
+    dynamic_base_url: Optional[str] = None,
+    dynamic_model: Optional[str] = None,
+) -> dict:
+    config = _get_ai_config(dynamic_key, dynamic_base_url, dynamic_model)
+    client = _ai_async_client(dynamic_key, dynamic_base_url, dynamic_model)
     if client is None:
         raise HTTPException(
             status_code=400,
-            detail="GROQ_API_KEY is missing. Set it in backend/.env or your environment. Get a free key at https://console.groq.com",
+            detail=f"No AI API key configured. Set {config['api_key_env_var']} in backend/.env or enter your key in the app settings.",
         )
 
     user_message = (
@@ -95,7 +212,7 @@ async def resolve_dependencies(user_input: str, detected_tools: list[str]) -> di
     async def _call(extra_user_suffix: str = "") -> str:
         user_content = user_message + extra_user_suffix
         resp = await client.chat.completions.create(
-            model=GROK_MODEL,
+            model=config["model"],
             temperature=0,
             messages=[
                 {"role": "system", "content": RESOLVE_SYSTEM_PROMPT},
@@ -125,32 +242,38 @@ async def resolve_dependencies(user_input: str, detected_tools: list[str]) -> di
     except json.JSONDecodeError as e:
         raise HTTPException(
             status_code=502,
-            detail=f"Grok returned invalid JSON after retry: {e}",
+            detail=f"AI returned invalid JSON after retry: {e}",
         ) from e
 
     raise HTTPException(
         status_code=502,
-        detail="Grok response did not match expected JSON schema (stack_name, required_tools).",
+        detail="AI response did not match expected JSON schema (stack_name, required_tools).",
     )
 
 
-def analyze_project(user_description: str, scan_results: List[Dict[str, Any]]) -> Dict[str, Any]:
-    client = _grok_sync_client()
+def analyze_project(
+    user_description: str,
+    scan_results: List[Dict[str, Any]],
+    dynamic_key: Optional[str] = None,
+    dynamic_base_url: Optional[str] = None,
+    dynamic_model: Optional[str] = None,
+) -> Dict[str, Any]:
+    config = _get_ai_config(dynamic_key, dynamic_base_url, dynamic_model)
+    client = _ai_sync_client(dynamic_key, dynamic_base_url, dynamic_model)
     if client is None:
         return {
-            "error": "GROQ_API_KEY is missing. Set it in backend/.env or your environment. Get a free key at https://console.groq.com",
+            "error": f"No AI API key. Set {config['api_key_env_var']} in backend/.env or enter your key in the app settings.",
             "required_tools": [],
             "version_requirements": {},
             "missing_tools": [],
             "outdated_tools": [],
-            "health_summary": "AI analysis unavailable because GROQ_API_KEY is not configured.",
-            "critical_issues": ["Missing GROQ_API_KEY"],
+            "health_summary": "AI analysis unavailable because no API key is configured.",
+            "critical_issues": [f"Missing API key ({config['api_key_env_var']})"],
             "recommendations": [
-                "Create backend/.env with GROQ_API_KEY=gsk_... and restart the server."
+                f"Create backend/.env with {config['api_key_env_var']}=your_key and restart the server, "
+                "or click the ⚙ Settings button in the app and enter your key."
             ],
         }
-
-    model = str(get_config_value("grok.model", GROQ_MODEL) or GROQ_MODEL)
 
     system_prompt = (
         "You are a senior DevOps engineer. A developer has described their project. "
@@ -173,7 +296,7 @@ def analyze_project(user_description: str, scan_results: List[Dict[str, Any]]) -
 
     try:
         resp = client.chat.completions.create(
-            model=model,
+            model=config["model"],
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message},
@@ -210,34 +333,40 @@ def analyze_project(user_description: str, scan_results: List[Dict[str, Any]]) -
         }
     except Exception as e:
         return {
-            "error": f"Grok call failed: {e}",
+            "error": f"AI call failed: {e}",
             "required_tools": [],
             "version_requirements": {},
             "missing_tools": [],
             "outdated_tools": [],
-            "health_summary": "AI analysis unavailable due to a Grok error.",
-            "critical_issues": ["Grok request failed"],
-            "recommendations": ["Verify network access and GROK_API_KEY, then retry."],
+            "health_summary": "AI analysis unavailable due to an AI error.",
+            "critical_issues": ["AI request failed"],
+            "recommendations": ["Verify your API key is valid and you have network access, then retry."],
         }
 
 
-async def analyze_project_async(user_description: str, scan_results: List[Dict[str, Any]]) -> Dict[str, Any]:
-    client = grok_client or _grok_async_client()
+async def analyze_project_async(
+    user_description: str,
+    scan_results: List[Dict[str, Any]],
+    dynamic_key: Optional[str] = None,
+    dynamic_base_url: Optional[str] = None,
+    dynamic_model: Optional[str] = None,
+) -> Dict[str, Any]:
+    config = _get_ai_config(dynamic_key, dynamic_base_url, dynamic_model)
+    client = _ai_async_client(dynamic_key, dynamic_base_url, dynamic_model)
     if client is None:
         return {
-            "error": "GROQ_API_KEY is missing. Set it in backend/.env or your environment. Get a free key at https://console.groq.com",
+            "error": f"No AI API key. Set {config['api_key_env_var']} in backend/.env or enter your key in the app settings.",
             "required_tools": [],
             "version_requirements": {},
             "missing_tools": [],
             "outdated_tools": [],
-            "health_summary": "AI analysis unavailable because GROQ_API_KEY is not configured.",
-            "critical_issues": ["Missing GROQ_API_KEY"],
+            "health_summary": "AI analysis unavailable because no API key is configured.",
+            "critical_issues": [f"Missing API key ({config['api_key_env_var']})"],
             "recommendations": [
-                "Create backend/.env with GROQ_API_KEY=gsk_... and restart the server."
+                f"Create backend/.env with {config['api_key_env_var']}=your_key and restart the server, "
+                "or click the ⚙ Settings button in the app and enter your key."
             ],
         }
-
-    model = str(get_config_value("grok.model", GROQ_MODEL) or GROQ_MODEL)
 
     system_prompt = (
         "You are a senior DevOps engineer. A developer has described their project. "
@@ -260,7 +389,7 @@ async def analyze_project_async(user_description: str, scan_results: List[Dict[s
 
     try:
         resp = await client.chat.completions.create(
-            model=model,
+            model=config["model"],
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message},
@@ -297,28 +426,35 @@ async def analyze_project_async(user_description: str, scan_results: List[Dict[s
         }
     except Exception as e:
         return {
-            "error": f"Grok call failed: {e}",
+            "error": f"AI call failed: {e}",
             "required_tools": [],
             "version_requirements": {},
             "missing_tools": [],
             "outdated_tools": [],
-            "health_summary": "AI analysis unavailable due to a Grok error.",
-            "critical_issues": ["Grok request failed"],
-            "recommendations": ["Verify network access and GROK_API_KEY, then retry."],
+            "health_summary": "AI analysis unavailable due to an AI error.",
+            "critical_issues": ["AI request failed"],
+            "recommendations": ["Verify your API key is valid and you have network access, then retry."],
         }
 
-def get_install_command(tool_name: str, platform: str) -> Dict[str, Any]:
-    client = _grok_sync_client()
+
+def get_install_command(
+    tool_name: str,
+    platform: str,
+    dynamic_key: Optional[str] = None,
+    dynamic_base_url: Optional[str] = None,
+    dynamic_model: Optional[str] = None,
+) -> Dict[str, Any]:
+    config = _get_ai_config(dynamic_key, dynamic_base_url, dynamic_model)
+    client = _ai_sync_client(dynamic_key, dynamic_base_url, dynamic_model)
     if client is None:
         return {
             "tool": tool_name,
             "platform": platform,
             "command": "",
-            "notes": "GROQ_API_KEY is missing. Set it in backend/.env or your environment.",
-            "error": "Missing GROQ_API_KEY",
+            "notes": f"No API key configured. Set {config['api_key_env_var']} in backend/.env or enter your key in app settings.",
+            "error": f"Missing API key",
         }
 
-    model = str(get_config_value("grok.model", GROQ_MODEL) or GROQ_MODEL)
     prompt = (
         f"What is the exact terminal command to install {tool_name} on {platform}? "
         "Return JSON only:\n"
@@ -332,7 +468,7 @@ def get_install_command(tool_name: str, platform: str) -> Dict[str, Any]:
 
     try:
         resp = client.chat.completions.create(
-            model=model,
+            model=config["model"],
             messages=[
                 {"role": "system", "content": "Respond ONLY with valid JSON, no markdown."},
                 {"role": "user", "content": prompt},
@@ -371,6 +507,6 @@ def get_install_command(tool_name: str, platform: str) -> Dict[str, Any]:
             "tool": tool_name,
             "platform": platform,
             "command": "",
-            "notes": "Grok request failed.",
+            "notes": "AI request failed.",
             "error": str(e),
         }

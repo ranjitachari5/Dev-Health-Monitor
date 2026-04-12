@@ -3,12 +3,16 @@ from __future__ import annotations
 import json
 import os as os_module
 import platform as platform_module
+import subprocess
+import sys
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -74,9 +78,20 @@ class GithubRequest(BaseModel):
 
 
 @app.post("/api/scan")
-async def api_scan(req: ScanRequest, session: Session = Depends(get_session)) -> Dict[str, Any]:
+async def api_scan(
+    req: ScanRequest,
+    session: Session = Depends(get_session),
+    x_ai_api_key: Optional[str] = Header(None),
+    x_ai_base_url: Optional[str] = Header(None),
+    x_ai_model: Optional[str] = Header(None),
+) -> Dict[str, Any]:
     try:
-        resolved = await resolve_dependencies(req.user_input, req.detected_tools)
+        resolved = await resolve_dependencies(
+            req.user_input, req.detected_tools,
+            dynamic_key=x_ai_api_key,
+            dynamic_base_url=x_ai_base_url,
+            dynamic_model=x_ai_model,
+        )
         stack_name = str(resolved.get("stack_name") or "Unknown")
         raw_tools = resolved.get("required_tools") or []
         if not isinstance(raw_tools, list):
@@ -102,7 +117,12 @@ async def api_scan(req: ScanRequest, session: Session = Depends(get_session)) ->
 
         user_input_summary = (req.user_input or "")[:200]
 
-        ai = await analyze_project_async(user_input_summary, results)
+        ai = await analyze_project_async(
+            user_input_summary, results,
+            dynamic_key=x_ai_api_key,
+            dynamic_base_url=x_ai_base_url,
+            dynamic_model=x_ai_model,
+        )
         ai_analysis = AIAnalysis(
             required_tools=ai.get("required_tools", []),
             missing_tools=ai.get("missing_tools", []),
@@ -114,13 +134,15 @@ async def api_scan(req: ScanRequest, session: Session = Depends(get_session)) ->
             error=ai.get("error"),
         ).dict()
         
-        # calculate overall_score
-        # Compute manually inline to match similar format to _compute_overall_score
-        score = 100
-        for t in results:
-            st = (t.get("status") or "missing").lower()
-            if st != "ok":
-                score -= 5
+        # Compute overall_score as a percentage: ok=full, outdated=half, missing=0
+        total_tools = len(results)
+        if total_tools == 0:
+            score = 100
+        else:
+            ok_count = summary.get("ok", 0)
+            outdated_count = summary.get("outdated", 0)
+            score = int(round(((ok_count + outdated_count * 0.5) / total_tools) * 100))
+            score = max(0, min(100, score))
 
         record = StackScanRecord(
             stack_name=stack_name,
@@ -215,26 +237,24 @@ def api_get_scan(scan_id: int, session: Session = Depends(get_session)) -> Dict[
 
 def _compute_overall_score(tools: List[Dict[str, Any]]) -> int:
     """
-    Simple scoring: start at 100, subtract based on status and missing installs.
-    Clamp to [0, 100].
+    Percentage-based score: healthy=full credit, warning/unknown=half, missing/critical=no credit.
+    Score = (full + 0.5 * partial) / total * 100, clamped to [0, 100].
     """
-    score = 100
+    if not tools:
+        return 100
+    total = len(tools)
+    full = 0
+    partial = 0
     for t in tools:
         status = (t.get("status") or "Unknown").lower()
         installed = bool(t.get("is_installed"))
-        if not installed:
-            score -= 5
-        elif status == "warning":
-            score -= 2
-        elif status == "critical":
-            score -= 5
-        elif status == "unknown":
-            score -= 1
-    if score < 0:
-        score = 0
-    if score > 100:
-        score = 100
-    return int(score)
+        if installed and status in ("healthy", "ok"):
+            full += 1
+        elif installed and status in ("warning", "unknown"):
+            partial += 1
+        # missing / critical = 0 credit
+    score = int(round(((full + partial * 0.5) / total) * 100))
+    return max(0, min(100, score))
 
 
 def _persist_scan(session: Session, platform_name: str, tools: List[Dict[str, Any]], project_description: Optional[str] = None, ai_summary: Optional[str] = None) -> ScanLog:
@@ -363,11 +383,22 @@ def get_health(session: Session = Depends(get_session)) -> HealthResponse:
 
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
-def post_analyze(body: AnalyzeBody, session: Session = Depends(get_session)) -> AnalyzeResponse:
+def post_analyze(
+    body: AnalyzeBody,
+    session: Session = Depends(get_session),
+    x_ai_api_key: Optional[str] = Header(None),
+    x_ai_base_url: Optional[str] = Header(None),
+    x_ai_model: Optional[str] = Header(None),
+) -> AnalyzeResponse:
     platform_name = detect_scan_platform()
     scan_results = scan_all_tools()
 
-    ai = analyze_project(body.project_description, scan_results)
+    ai = analyze_project(
+        body.project_description, scan_results,
+        dynamic_key=x_ai_api_key,
+        dynamic_base_url=x_ai_base_url,
+        dynamic_model=x_ai_model,
+    )
 
     version_requirements = ai.get("version_requirements") or {}
     if isinstance(version_requirements, dict):
@@ -439,6 +470,68 @@ def post_fix(
     )
 
 
+@app.get("/api/fix-stream/{tool_name}")
+def fix_stream(
+    tool_name: str,
+    fix_type: str = Query("install", pattern="^(install|update)$"),
+) -> StreamingResponse:
+    """
+    Run the install script for a tool and stream output line-by-line as SSE.
+    Each event: data: <line>\n\n
+    A special final event: data: __DONE__:<exit_code>\n\n
+    """
+    plat = detect_fix_platform()
+    scripts_dir = Path(__file__).resolve().parent / "scripts"
+
+    if plat == "windows":
+        script = scripts_dir / "install_deps.ps1"
+        cmd = [
+            "powershell",
+            "-ExecutionPolicy", "Bypass",
+            "-File", str(script),
+            "-ToolName", tool_name,
+        ]
+    else:
+        script = scripts_dir / "install_deps.sh"
+        cmd = ["bash", str(script), tool_name]
+
+    def _stream() -> Iterator[str]:
+        yield f"data: Installing {tool_name}...\n\n"
+        yield f"data: Running: {' '.join(cmd)}\n\n"
+        yield "data: \n\n"
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                cwd=str(scripts_dir),
+            )
+            for line in proc.stdout:  # type: ignore[union-attr]
+                clean = line.rstrip("\r\n")
+                yield f"data: {clean}\n\n"
+            proc.wait()
+            yield f"data: \n\n"
+            if proc.returncode == 0:
+                yield f"data: ✓ Installation complete for {tool_name}\n\n"
+            else:
+                yield f"data: ✗ Installation failed (exit code {proc.returncode})\n\n"
+            yield f"data: __DONE__:{proc.returncode}\n\n"
+        except Exception as exc:
+            yield f"data: ERROR: {exc}\n\n"
+            yield "data: __DONE__:1\n\n"
+
+    return StreamingResponse(
+        _stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @app.get("/api/scan/history", response_model=ScanHistoryResponse)
 def get_scan_history(session: Session = Depends(get_session)) -> ScanHistoryResponse:
     scans = session.exec(select(ScanLog).order_by(ScanLog.timestamp.desc()).limit(10)).all()
@@ -480,9 +573,19 @@ def get_scan_history(session: Session = Depends(get_session)) -> ScanHistoryResp
 
 
 @app.get("/api/install-command/{tool_name}", response_model=InstallCommandResponse)
-def get_install_cmd(tool_name: str) -> InstallCommandResponse:
+def get_install_cmd(
+    tool_name: str,
+    x_ai_api_key: Optional[str] = Header(None),
+    x_ai_base_url: Optional[str] = Header(None),
+    x_ai_model: Optional[str] = Header(None),
+) -> InstallCommandResponse:
     platform_name = detect_scan_platform()
-    res = get_install_command(tool_name=tool_name, platform=platform_name)
+    res = get_install_command(
+        tool_name=tool_name, platform=platform_name,
+        dynamic_key=x_ai_api_key,
+        dynamic_base_url=x_ai_base_url,
+        dynamic_model=x_ai_model,
+    )
     return InstallCommandResponse(
         tool=str(res.get("tool", tool_name)),
         platform=str(res.get("platform", platform_name)),

@@ -4,8 +4,20 @@ import { ProjectInput } from './components/ProjectInput';
 import { ScanDashboard } from './components/ScanDashboard';
 import { ScanHistory } from './components/ScanHistory';
 import { Squares } from './components/Squares';
+import { ApiKeyModal, ApiKeyButton, loadStoredConfig, saveStoredConfig } from './components/ApiKeyModal';
 import { runHealthScan, runScan } from './api/client';
 import type { AppView, HealthScanResponse, ScanResponse, ToolResult, ToolStatus } from './types';
+
+/** Compute a proper 0-100 health score from scan results */
+function computeScore(results: ToolResult[]): number {
+  if (results.length === 0) return 100;
+  const ok = results.filter((r) => r.status === 'ok').length;
+  const outdated = results.filter((r) => r.status === 'outdated').length;
+  const total = results.length;
+  // ok = full credit, outdated = half credit, missing = 0
+  return Math.max(0, Math.min(100, Math.round(((ok + outdated * 0.5) / total) * 100)));
+}
+
 function mapHealthToScanResponse(h: HealthScanResponse): ScanResponse {
   const results: ToolResult[] = h.tools.map((t) => {
     let status: ToolStatus = 'missing';
@@ -40,6 +52,7 @@ function mapHealthToScanResponse(h: HealthScanResponse): ScanResponse {
     results,
     summary,
     timestamp: h.timestamp ?? h.scan_timestamp,
+    overall_score: h.overall_score ?? computeScore(results),
   };
 }
 
@@ -104,6 +117,26 @@ function App() {
   const [scanData, setScanData] = useState<ScanResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [aiConfig, setAiConfig] = useState(() => {
+    const cfg = loadStoredConfig();
+    // Auto-upgrade stale Gemini config (old model / trailing slash URL)
+    if (
+      cfg.provider === 'gemini' &&
+      (cfg.model === 'gemini-1.5-flash' || cfg.baseUrl.endsWith('/'))
+    ) {
+      const upgraded = {
+        ...cfg,
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+        model: 'gemini-2.0-flash',
+      };
+      saveStoredConfig(upgraded);
+      return upgraded;
+    }
+    return cfg;
+  });
+
+  const hasApiKey = !!aiConfig.apiKey;
 
   // Cursor refs
   const dotRef = useRef<HTMLDivElement>(null);
@@ -185,6 +218,14 @@ function App() {
       <div className="cursor-ring" ref={ringRef} />
       <div className="cursor-glow-layer pointer-events-none" />
 
+      {/* API Key Modal — always rendered at root */}
+      <ApiKeyModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSave={(cfg) => setAiConfig(cfg)}
+        currentConfig={aiConfig}
+      />
+
       {/* Container with soft shadow for premium feel */}
       <div className="relative w-full h-full overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.2)] bg-black/20">
         <div className="absolute inset-0 z-0">
@@ -204,6 +245,8 @@ function App() {
               onQuickScan={handleLandingQuickScan}
               onDescribeProject={() => setView('input')}
               onViewHistory={() => setView('history')}
+              onOpenSettings={() => setSettingsOpen(true)}
+              hasApiKey={hasApiKey}
             />
           )}
 
@@ -217,13 +260,16 @@ function App() {
                 >
                   ← Home
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setView('history')}
-                  className="nav-link text-sm"
-                >
-                  View history
-                </button>
+                <div className="flex items-center gap-3">
+                  <ApiKeyButton onClick={() => setSettingsOpen(true)} hasKey={hasApiKey} />
+                  <button
+                    type="button"
+                    onClick={() => setView('history')}
+                    className="nav-link text-sm"
+                  >
+                    View history
+                  </button>
+                </div>
               </div>
               <ProjectInput onScanStart={handleScan} />
             </div>

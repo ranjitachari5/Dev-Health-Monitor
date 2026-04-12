@@ -1,11 +1,14 @@
 {
   "database_url": "sqlite:///./dev_env_health.db",
   "scan": {
-    "subprocess_timeout_seconds": 8,
-    "max_workers": 24
+    "subprocess_timeout_seconds": 5,
+    "max_workers": 8
   },
-  "grok": {
-    "model": "llama-3.3-70b-versatile"
+  "ai": {
+    "provider": "openai",
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-4o-mini",
+    "api_key_env_var": "AI_API_KEY"
   },
   "api": {
     "cors_origins": ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://localhost:5174"]

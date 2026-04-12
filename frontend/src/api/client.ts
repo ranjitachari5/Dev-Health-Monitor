@@ -3,6 +3,7 @@ import type {
   ScanHistoryItem,
   ScanResponse,
 } from '../types';
+import { loadStoredConfig } from '../components/ApiKeyModal';
 
 // If VITE_API_URL is empty/unset, use relative paths (Vite proxy handles /api/* → backend)
 // If explicitly set (e.g. production), use that URL
@@ -22,10 +23,23 @@ function formatDetail(errBody: unknown): string {
   return 'Request failed';
 }
 
+/** Build AI credential headers from localStorage config (if set). */
+function getAiHeaders(): Record<string, string> {
+  const cfg = loadStoredConfig();
+  const headers: Record<string, string> = {};
+  if (cfg.apiKey)  headers['X-AI-Api-Key']  = cfg.apiKey;
+  if (cfg.baseUrl) headers['X-AI-Base-Url'] = cfg.baseUrl;
+  if (cfg.model)   headers['X-AI-Model']    = cfg.model;
+  return headers;
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(BASE_URL + path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAiHeaders(),
+    },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -36,7 +50,9 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(BASE_URL + path);
+  const res = await fetch(BASE_URL + path, {
+    headers: getAiHeaders(),
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Request failed' }));
     throw new Error(formatDetail(err));
@@ -53,6 +69,18 @@ export const analyzeGithub = (repo_url: string) =>
 export const getScanHistory = () => get<ScanHistoryItem[]>('/api/history');
 
 export const getScanById = (id: number) => get<ScanResponse>(`/api/scan/${id}`);
+
+export interface InstallCommandResponse {
+  tool: string;
+  platform: string;
+  command: string;
+  notes: string;
+  error: string | null;
+  raw_response: string | null;
+}
+
+export const getInstallCommand = (toolName: string) =>
+  get<InstallCommandResponse>(`/api/install-command/${encodeURIComponent(toolName)}`);
 
 /** Legacy quick machine scan (all tools). */
 export async function runHealthScan(): Promise<import('../types').HealthScanResponse> {

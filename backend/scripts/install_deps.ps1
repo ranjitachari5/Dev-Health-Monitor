@@ -3,54 +3,136 @@ param(
   [string]$ToolName
 )
 
-$ErrorActionPreference = "Stop"
+$ToolName = $ToolName.ToLower().Trim()
 
-$map = @{
-  "python"     = "Python.Python.3"
-  "git"        = "Git.Git"
-  "node"       = "OpenJS.NodeJS.LTS"
-  "docker"     = "Docker.DockerDesktop"
-  "postgresql" = "PostgreSQL.PostgreSQL"
-  "mysql"      = "Oracle.MySQL"
-  "mongodb"    = "MongoDB.Server"
-  "redis"      = "tporadowski.Redis"
-  "go"         = "GoLang.Go"
-  "rust"       = "Rustlang.Rust.MSVC"
-  "dotnet"     = "Microsoft.DotNet.SDK.8"
-  "vscode"     = "Microsoft.VisualStudioCode"
-  "kubectl"    = "Kubernetes.kubectl"
-  "terraform"  = "Hashicorp.Terraform"
+# Winget package ID map
+$wingetMap = @{
+  "python"       = "Python.Python.3"
+  "python3"      = "Python.Python.3"
+  "git"          = "Git.Git"
+  "node"         = "OpenJS.NodeJS.LTS"
+  "nodejs"       = "OpenJS.NodeJS.LTS"
+  "npm"          = "OpenJS.NodeJS.LTS"
+  "docker"       = "Docker.DockerDesktop"
+  "docker-compose" = "Docker.DockerDesktop"
+  "postgresql"   = "PostgreSQL.PostgreSQL"
+  "postgres"     = "PostgreSQL.PostgreSQL"
+  "mysql"        = "Oracle.MySQL"
+  "mongodb"      = "MongoDB.Server"
+  "redis"        = "tporadowski.Redis"
+  "go"           = "GoLang.Go"
+  "rust"         = "Rustlang.Rust.MSVC"
+  "dotnet"       = "Microsoft.DotNet.SDK.8"
+  "vscode"       = "Microsoft.VisualStudioCode"
+  "kubectl"      = "Kubernetes.kubectl"
+  "terraform"    = "Hashicorp.Terraform"
+  "java"         = "Oracle.JDK.21"
+  "jdk"          = "Oracle.JDK.21"
+  "maven"        = "Apache.Maven"
+  "gradle"       = "Gradle.Gradle"
+  "ruby"         = "RubyInstallerTeam.Ruby.3.3"
+  "php"          = "PHP.PHP"
+  "composer"     = "PHP.Composer"
+  "ffmpeg"       = "Gyan.FFmpeg"
+  "curl"         = "cURL.cURL"
+  "wget"         = "GnuWin32.Wget"
+  "make"         = "GnuWin32.Make"
+  "cmake"        = "Kitware.CMake"
+  "helm"         = "Helm.Helm"
+  "minikube"     = "Kubernetes.minikube"
+  "pulumi"       = "Pulumi.Pulumi"
+  "awscli"       = "Amazon.AWSCLI"
+  "aws"          = "Amazon.AWSCLI"
+  "azure-cli"    = "Microsoft.AzureCLI"
+  "az"           = "Microsoft.AzureCLI"
+  "gcloud"       = "Google.CloudSDK"
 }
 
-Write-Host "Dev Environment Health Monitor - Dependency Installer (Windows)"
-Write-Host "Tool: $ToolName"
+# npm-installable tools
+$npmMap = @{
+  "yarn"         = "yarn"
+  "pnpm"         = "pnpm"
+  "typescript"   = "typescript"
+  "ts-node"      = "ts-node"
+  "eslint"       = "eslint"
+  "prettier"     = "prettier"
+  "nx"           = "nx"
+  "expo-cli"     = "expo-cli"
+  "create-react-app" = "create-react-app"
+}
+
+# pip-installable tools
+$pipMap = @{
+  "pip"          = "pip"
+  "pipenv"       = "pipenv"
+  "poetry"       = "poetry"
+  "black"        = "black"
+  "flake8"       = "flake8"
+  "mypy"         = "mypy"
+  "pytest"       = "pytest"
+  "uvicorn"      = "uvicorn"
+  "celery"       = "celery"
+}
+
+Write-Host "=== Dev Health Monitor - Installing: $ToolName ==="
 Write-Host ""
 
-if (-not $map.ContainsKey($ToolName)) {
-  Write-Host "No winget mapping for '$ToolName'."
-  Write-Host "Simulating install anyway..."
-  Start-Sleep -Milliseconds 500
-  Write-Host "Done (simulated)."
-  exit 0
+# Try npm first for node tools
+if ($npmMap.ContainsKey($ToolName)) {
+  $pkg = $npmMap[$ToolName]
+  Write-Host "Installing via npm: $pkg"
+  Write-Host "Running: npm install -g $pkg"
+  Write-Host ""
+  & npm install -g $pkg
+  if ($LASTEXITCODE -eq 0) {
+    Write-Host ""
+    Write-Host "SUCCESS: $ToolName installed via npm."
+    exit 0
+  } else {
+    Write-Host "npm install failed (exit $LASTEXITCODE)."
+    exit 1
+  }
 }
 
-$pkg = $map[$ToolName]
-Write-Host "Resolved winget package id: $pkg"
-Write-Host "Simulating: winget install --id $pkg --silent --accept-source-agreements --accept-package-agreements"
+# Try pip for python packages
+if ($pipMap.ContainsKey($ToolName)) {
+  $pkg = $pipMap[$ToolName]
+  Write-Host "Installing via pip: $pkg"
+  Write-Host "Running: pip install $pkg"
+  Write-Host ""
+  & pip install $pkg
+  if ($LASTEXITCODE -eq 0) {
+    Write-Host ""
+    Write-Host "SUCCESS: $ToolName installed via pip."
+    exit 0
+  } else {
+    Write-Host "pip install failed (exit $LASTEXITCODE)."
+    exit 1
+  }
+}
+
+# Try winget
+if ($wingetMap.ContainsKey($ToolName)) {
+  $pkg = $wingetMap[$ToolName]
+  Write-Host "Installing via winget: $pkg"
+  Write-Host "Running: winget install --id $pkg --silent --accept-source-agreements --accept-package-agreements"
+  Write-Host ""
+  & winget install --id $pkg --silent --accept-source-agreements --accept-package-agreements
+  if ($LASTEXITCODE -eq 0) {
+    Write-Host ""
+    Write-Host "SUCCESS: $ToolName installed. You may need to restart your terminal."
+    exit 0
+  } else {
+    Write-Host "winget install failed (exit $LASTEXITCODE)."
+    exit 1
+  }
+}
+
+# Unknown tool — try winget search as a fallback hint
+Write-Host "No known package mapping for '$ToolName'."
+Write-Host "Trying: winget search $ToolName"
 Write-Host ""
-
-for ($i = 1; $i -le 10; $i++) {
-  Write-Host ("Downloading... {0}%" -f ($i * 10))
-  Start-Sleep -Milliseconds 250
-}
-for ($i = 1; $i -le 5; $i++) {
-  Write-Host ("Installing... {0}%" -f ($i * 20))
-  Start-Sleep -Milliseconds 350
-}
-
+& winget search $ToolName
 Write-Host ""
-Write-Host "Install completed for $ToolName (simulated)."
-Write-Host "Tip: If the tool is still not detected, run the PATH fix action."
-
-exit 0
-
+Write-Host "Please run the winget install command above manually."
+exit 1
