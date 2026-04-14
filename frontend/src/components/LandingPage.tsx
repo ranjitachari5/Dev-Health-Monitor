@@ -25,7 +25,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 }) => {
   const [platform, setPlatform] = useState<string>('');
   const [isScanning, setIsScanning] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,15 +33,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     else if (ua.includes('Mac')) setPlatform('macOS');
     else if (ua.includes('Linux')) setPlatform('Linux');
     else setPlatform('Unknown');
-
-    const handleMove = (e: MouseEvent) => {
-      setMousePos({
-        x: e.clientX / window.innerWidth,
-        y: e.clientY / window.innerHeight,
-      });
-    };
-    window.addEventListener('mousemove', handleMove);
-    return () => window.removeEventListener('mousemove', handleMove);
   }, []);
 
   const handleQuickScan = async () => {
@@ -63,11 +53,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     }
   };
 
-  // 3D parallax transform based on cursor position
-  const parallaxStyle = {
-    transform: `rotateY(${(mousePos.x - 0.5) * 8}deg) rotateX(${(mousePos.y - 0.5) * -6}deg)`,
-    transition: 'transform 0.2s ease-out',
-  };
 
   return (
     <div className="relative w-full min-h-full flex flex-col">
@@ -97,10 +82,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* Main content */}
       <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-6 pb-16 pt-8"
         ref={heroRef}>
-        <div
-          className="max-w-3xl w-full text-center scene-3d"
-          style={parallaxStyle}
-        >
+        <div className="max-w-3xl w-full text-center">
           {/* Badge */}
           <div
             className={`inline-flex items-center gap-2 mb-8 px-5 py-2.5 rounded-full glass-card animate-fade-in-up`}
@@ -187,8 +169,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               className="glass-card tilt-card rounded-2xl p-4 flex flex-col gap-2"
               style={{
                 animationDelay: `${500 + i * 80}ms`,
-                transform: `perspective(800px) rotateY(${(mousePos.x - 0.5) * 5}deg) rotateX(${(mousePos.y - 0.5) * -4}deg)`,
-                transition: 'transform 0.25s ease-out',
               }}
               data-hover
             >

@@ -91,25 +91,12 @@ export const ToolCard: React.FC<ToolCardProps> = ({ tool }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const validInstallUrl = formatValidUrl(tool.install_url);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const card = cardRef.current;
-    if (!card) return;
-    const rect = card.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
-    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
-    card.style.transform = `perspective(600px) rotateY(${x * 10}deg) rotateX(${-y * 8}deg) scale(1.02)`;
-    card.style.boxShadow = `
-      ${x * -8}px ${y * -8}px 30px rgba(0,0,0,0.4),
-      0 0 30px ${cfg.glow},
-      inset 0 1px 0 rgba(255,255,255,0.05)
-    `;
+  const handleMouseMove = () => {
+    // Disabled tilt effect to keep dashboard stable
   };
 
   const handleMouseLeave = () => {
-    const card = cardRef.current;
-    if (!card) return;
-    card.style.transform = 'perspective(600px) rotateY(0deg) rotateX(0deg) scale(1)';
-    card.style.boxShadow = '';
+    // Disabled reset effect
   };
 
   return (
