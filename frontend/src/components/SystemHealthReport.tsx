@@ -2,27 +2,14 @@ import React from 'react';
 import type { ScanResponse } from '../types';
 import { ScoreRing } from './ScoreRing';
 import { AIInsights } from './AIInsights';
-import { InstallProgressModal } from './InstallProgressModal';
 
 interface SystemHealthReportProps {
   scanData: ScanResponse;
 }
 
 export const SystemHealthReport: React.FC<SystemHealthReportProps> = ({ scanData }) => {
+  const score = scanData.overall_score ?? 100;
   const analysis = scanData.ai_analysis;
-  const [installModalOpen, setInstallModalOpen] = React.useState(false);
-  const [installingTool, setInstallingTool] = React.useState('');
-
-  // Compute score from actual results — never blindly default to 100
-  const score = (() => {
-    if (typeof scanData.overall_score === 'number') return scanData.overall_score;
-    const results = scanData.results ?? [];
-    if (results.length === 0) return 0;
-    const ok = results.filter((r) => r.status === 'ok').length;
-    const outdated = results.filter((r) => r.status === 'outdated').length;
-    return Math.max(0, Math.min(100, Math.round(((ok + outdated * 0.5) / results.length) * 100)));
-  })();
-
 
   return (
     <div className="mt-10 pt-10" style={{ borderTop: '1px solid rgba(59,130,246,0.1)' }}>
@@ -32,7 +19,7 @@ export const SystemHealthReport: React.FC<SystemHealthReportProps> = ({ scanData
           className="w-1 h-8 rounded-full"
           style={{ background: 'linear-gradient(to bottom,#3b82f6,#7c3aed)', boxShadow: '0 0 12px rgba(59,130,246,0.4)' }}
         />
-        <h2 className="text-2xl font-extrabold gradient-text">AI Health Report</h2>
+        <h2 className="text-2xl font-extrabold gradient-text">Grok AI Health Report</h2>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -68,8 +55,7 @@ export const SystemHealthReport: React.FC<SystemHealthReportProps> = ({ scanData
               <AIInsights
                 analysis={analysis}
                 onFixTool={async (toolName) => {
-                  setInstallingTool(toolName);
-                  setInstallModalOpen(true);
+                  window.open(`https://google.com/search?q=install+${toolName}`, '_blank');
                 }}
               />
             </div>
@@ -85,22 +71,11 @@ export const SystemHealthReport: React.FC<SystemHealthReportProps> = ({ scanData
                   style={{ boxShadow: '0 0 16px rgba(59,130,246,0.3)' }}
                 />
               </div>
-              <p className="text-blue-200/50 font-medium text-sm">Generating AI Insights…</p>
+              <p className="text-blue-200/50 font-medium text-sm">Generating Grok AI Insights…</p>
             </div>
           )}
         </div>
       </div>
-
-      <InstallProgressModal
-        isOpen={installModalOpen}
-        toolName={installingTool}
-        onClose={() => setInstallModalOpen(false)}
-        onComplete={(success) => {
-          if (success) {
-            // Optional: User can be prompted to re-scan here
-          }
-        }}
-      />
     </div>
   );
 };

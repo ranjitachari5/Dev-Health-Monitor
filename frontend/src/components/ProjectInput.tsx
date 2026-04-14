@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { StackChips } from './StackChips';
 import { analyzeGithub } from '../api/client';
 import type { GithubAnalysis, InputMode, ProjectTemplate } from '../types';
@@ -59,6 +59,24 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({ onScanStart }) => {
   const [githubLoading, setGithubLoading] = useState(false);
   const [githubError, setGithubError] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate | null>(null);
+
+  // Sliding pill refs
+  const tabContainerRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [pillStyle, setPillStyle] = useState({ left: 0, top: 0, width: 0, height: 0, opacity: 0 });
+
+  const movePillTo = useCallback((id: string | null) => {
+    if (!id || !tabContainerRef.current) {
+      setPillStyle(s => ({ ...s, opacity: 0 }));
+      return;
+    }
+    const btn = tabRefs.current[id];
+    const container = tabContainerRef.current;
+    if (!btn) return;
+    const b = btn.getBoundingClientRect();
+    const c = container.getBoundingClientRect();
+    setPillStyle({ left: b.left - c.left, top: b.top - c.top, width: b.width, height: b.height, opacity: 1 });
+  }, []);
 
   const folderLabel = useMemo(() => {
     if (folderFiles.length === 0) return '';
@@ -134,20 +152,44 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({ onScanStart }) => {
 
         {/* Mode tabs */}
         <div
-          className="flex flex-wrap gap-1.5 rounded-2xl p-1.5 mb-8 animate-fade-in-up"
+          ref={tabContainerRef}
+          className="relative flex flex-wrap gap-1.5 rounded-2xl p-1.5 mb-8 animate-fade-in-up"
           style={{
             background: 'rgba(5,5,20,0.8)',
             border: '1px solid rgba(59,130,246,0.15)',
             backdropFilter: 'blur(16px)',
             animationDelay: '100ms',
           }}
+          onMouseLeave={() => movePillTo(null)}
         >
+          {/* Magic sliding pill */}
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              left: pillStyle.left,
+              top: pillStyle.top,
+              width: pillStyle.width,
+              height: pillStyle.height,
+              opacity: pillStyle.opacity,
+              borderRadius: '0.75rem',
+              pointerEvents: 'none',
+              zIndex: 0,
+              background: 'linear-gradient(135deg, rgba(37,99,235,0.35), rgba(124,58,237,0.25))',
+              border: '1px solid rgba(96,165,250,0.5)',
+              boxShadow: '0 0 24px rgba(59,130,246,0.4), 0 0 8px rgba(124,58,237,0.25)',
+              transition:
+                'left 0.28s cubic-bezier(0.23,1,0.32,1), top 0.28s cubic-bezier(0.23,1,0.32,1), width 0.28s cubic-bezier(0.23,1,0.32,1), height 0.28s cubic-bezier(0.23,1,0.32,1), opacity 0.18s ease',
+            }}
+          />
           {modes.map((m) => (
             <button
               key={m.id}
+              ref={el => { tabRefs.current[m.id] = el; }}
               type="button"
               onClick={() => setActiveMode(m.id)}
-              className="flex-1 min-w-[110px] rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2"
+              onMouseEnter={() => movePillTo(m.id)}
+              className="relative z-10 flex-1 min-w-[110px] rounded-xl px-4 py-2.5 text-sm font-medium transition-colors duration-200 flex items-center justify-center gap-2"
               style={activeMode === m.id ? {
                 background: 'linear-gradient(135deg,#1e40af,#2563eb)',
                 color: '#fff',
@@ -269,7 +311,7 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({ onScanStart }) => {
                     key={tpl.name}
                     type="button"
                     onClick={() => setSelectedTemplate(tpl)}
-                    className="text-left rounded-2xl p-4 transition-all duration-300 tilt-card"
+                    className="template-card text-left rounded-2xl p-4 transition-all duration-300 tilt-card"
                     style={isSelected ? {
                       background: 'linear-gradient(135deg,rgba(30,64,175,0.5),rgba(124,58,237,0.3))',
                       border: '1px solid rgba(96,165,250,0.5)',

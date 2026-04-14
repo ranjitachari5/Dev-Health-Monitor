@@ -28,8 +28,8 @@ export const ScanProgress: React.FC<ScanProgressProps> = ({
 }) => {
   const staticLines = useMemo(() => {
     const base: string[] = [
-      '$ dev-health-monitor --scan --ai analyze',
-      'Connecting to AI engine...',
+      '$ dev-health-monitor --scan --ai grok',
+      'Connecting to Grok AI (xAI)...',
       'Analyzing project stack...',
     ];
     if (stackName) base.push(`Stack identified: ${stackName}`);
