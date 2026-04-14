@@ -43,7 +43,7 @@ async function get<T>(path: string, headers: Record<string, string> = {}): Promi
 
 function getAiHeaders(): Record<string, string> {
   const cfg = loadStoredConfig();
-  if (!cfg.apiKey.trim()) return {};
+  if (cfg.mode !== 'custom' || !cfg.apiKey.trim()) return {};
   const headers: Record<string, string> = {
     'X-AI-Api-Key': cfg.apiKey.trim(),
   };
@@ -52,17 +52,48 @@ function getAiHeaders(): Record<string, string> {
   return headers;
 }
 
+const CLIENT_ID_STORAGE = 'devhealth_client_id';
+
+function getClientId(): string {
+  try {
+    const existing = localStorage.getItem(CLIENT_ID_STORAGE);
+    if (existing && existing.trim()) return existing;
+    const generated = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem(CLIENT_ID_STORAGE, generated);
+    return generated;
+  } catch {
+    return 'anonymous';
+  }
+}
+
+function withClientHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return {
+    'X-Client-Id': getClientId(),
+    ...extra,
+  };
+}
+
 export const runScan = (req: { user_input: string; detected_tools: string[] }) =>
-  post<ScanResponse>('/api/scan', req, getAiHeaders());
+  post<ScanResponse>('/api/scan', req, withClientHeaders(getAiHeaders()));
 
 export const analyzeGithub = (repo_url: string) =>
-  post<GithubAnalysis>('/api/analyze-github', { repo_url }, getAiHeaders());
+  post<GithubAnalysis>('/api/analyze-github', { repo_url }, withClientHeaders(getAiHeaders()));
 
-export const getScanHistory = () => get<ScanHistoryItem[]>('/api/history');
+export const getScanHistory = () => get<ScanHistoryItem[]>('/api/history', withClientHeaders());
 
-export const getScanById = (id: number) => get<ScanResponse>(`/api/scan/${id}`);
+export const getScanById = (id: number) => get<ScanResponse>(`/api/scan/${id}`, withClientHeaders());
 
 export const pingApi = () => get<{ status: string }>('/api/ping');
+
+export interface AiKeyStatus {
+  ok: boolean;
+  source: 'default' | 'custom';
+  provider: string;
+  model: string;
+  message: string;
+}
+
+export const getAiKeyStatus = () => get<AiKeyStatus>('/api/ai-status', withClientHeaders(getAiHeaders()));
 
 /** Legacy quick machine scan (all tools). */
 export async function runHealthScan(): Promise<import('../types').HealthScanResponse> {

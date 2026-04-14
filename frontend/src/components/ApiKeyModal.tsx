@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Key, Eye, EyeOff, CheckCircle, Settings } from 'lucide-react';
 
 export interface ApiKeyConfig {
+  mode: 'default' | 'custom';
   apiKey: string;
   baseUrl: string;
   model: string;
@@ -67,7 +68,7 @@ export function loadStoredConfig(): ApiKeyConfig {
   } catch {
     // ignore
   }
-  return { apiKey: '', baseUrl: '', model: '', provider: '' };
+  return { mode: 'default', apiKey: '', baseUrl: '', model: '', provider: '' };
 }
 
 export function saveStoredConfig(cfg: ApiKeyConfig): void {
@@ -81,16 +82,18 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   currentConfig,
 }) => {
   const [apiKey, setApiKey] = useState(currentConfig.apiKey);
+  const [mode, setMode] = useState<'default' | 'custom'>(currentConfig.mode ?? 'default');
   const [showKey, setShowKey] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const preset = resolvePreset(apiKey);
-  const usingDefault = !apiKey.trim();
+  const usingDefault = mode === 'default';
 
   // Sync when modal opens
   useEffect(() => {
     if (isOpen) {
       setApiKey(currentConfig.apiKey);
+      setMode(currentConfig.mode ?? (currentConfig.apiKey ? 'custom' : 'default'));
       setSaved(false);
       setShowKey(false);
     }
@@ -99,12 +102,15 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   if (!isOpen) return null;
 
   const handleSave = () => {
-    const p = resolvePreset(apiKey);
+    const trimmed = apiKey.trim();
+    const p = resolvePreset(trimmed);
+    const useDefault = mode === 'default';
     const cfg: ApiKeyConfig = {
-      apiKey: apiKey.trim(),
-      baseUrl: p?.baseUrl ?? '',
-      model: p?.model ?? '',
-      provider: p?.provider ?? (apiKey.trim() ? 'custom' : ''),
+      mode,
+      apiKey: useDefault ? '' : trimmed,
+      baseUrl: useDefault ? '' : (p?.baseUrl ?? ''),
+      model: useDefault ? '' : (p?.model ?? ''),
+      provider: useDefault ? '' : (p?.provider ?? (trimmed ? 'custom' : '')),
     };
     saveStoredConfig(cfg);
     onSave(cfg);
@@ -116,8 +122,9 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   };
 
   const handleClear = () => {
+    setMode('default');
     setApiKey('');
-    const cfg: ApiKeyConfig = { apiKey: '', baseUrl: '', model: '', provider: '' };
+    const cfg: ApiKeyConfig = { mode: 'default', apiKey: '', baseUrl: '', model: '', provider: '' };
     saveStoredConfig(cfg);
     onSave(cfg);
   };
@@ -178,6 +185,29 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
           </span>
         </div>
 
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setMode('default')}
+            className={`rounded-xl px-3 py-2 text-sm font-medium border transition-all ${mode === 'default' ? 'text-white' : 'text-blue-200/70'}`}
+            style={mode === 'default'
+              ? { background: 'rgba(16,163,127,0.2)', borderColor: 'rgba(16,163,127,0.4)' }
+              : { background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.1)' }}
+          >
+            Default AI Brain
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('custom')}
+            className={`rounded-xl px-3 py-2 text-sm font-medium border transition-all ${mode === 'custom' ? 'text-white' : 'text-blue-200/70'}`}
+            style={mode === 'custom'
+              ? { background: 'rgba(59,130,246,0.2)', borderColor: 'rgba(59,130,246,0.4)' }
+              : { background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.1)' }}
+          >
+            Use My API Key
+          </button>
+        </div>
+
         {/* API Key input */}
         <div>
           <label className="text-blue-200/40 text-xs uppercase tracking-widest block mb-2">
@@ -189,6 +219,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               type={showKey ? 'text' : 'password'}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
+              disabled={mode === 'default'}
               placeholder="sk-…  or  sk-ant-…  or  AIza…  or  gsk_…"
               className="w-full rounded-xl px-4 py-3.5 pr-11 text-sm font-mono bg-white/5 border border-white/10 text-white placeholder-blue-300/20 focus:outline-none focus:border-blue-500/40 transition-all"
               autoComplete="off"
@@ -224,7 +255,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
         {/* Actions */}
         <div className="flex gap-3 pt-1">
-          {apiKey && (
+          {mode === 'custom' && apiKey && (
             <button
               type="button"
               onClick={handleClear}

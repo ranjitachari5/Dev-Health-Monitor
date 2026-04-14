@@ -277,17 +277,14 @@ def analyze_project(
     client = _ai_sync_client(dynamic_key, dynamic_base_url, dynamic_model)
     if client is None:
         return {
-            "error": f"No AI API key. Set {config['api_key_env_var']} in backend/.env or enter your key in the app settings.",
+            "error": f"No AI API key configured ({config['api_key_env_var']}).",
             "required_tools": [],
             "version_requirements": {},
             "missing_tools": [],
             "outdated_tools": [],
-            "health_summary": "AI analysis unavailable because no API key is configured.",
-            "critical_issues": [f"Missing API key ({config['api_key_env_var']})"],
-            "recommendations": [
-                f"Create backend/.env with {config['api_key_env_var']}=your_key and restart the server, "
-                "or click the ⚙ Settings button in the app and enter your key."
-            ],
+            "health_summary": "",
+            "critical_issues": [],
+            "recommendations": [],
         }
 
     system_prompt = (
@@ -353,9 +350,9 @@ def analyze_project(
             "version_requirements": {},
             "missing_tools": [],
             "outdated_tools": [],
-            "health_summary": "AI analysis unavailable due to an AI error.",
-            "critical_issues": ["AI request failed"],
-            "recommendations": ["Verify your API key is valid and you have network access, then retry."],
+            "health_summary": "",
+            "critical_issues": [],
+            "recommendations": [],
         }
 
 
@@ -370,17 +367,14 @@ async def analyze_project_async(
     client = _ai_async_client(dynamic_key, dynamic_base_url, dynamic_model)
     if client is None:
         return {
-            "error": f"No AI API key. Set {config['api_key_env_var']} in backend/.env or enter your key in the app settings.",
+            "error": f"No AI API key configured ({config['api_key_env_var']}).",
             "required_tools": [],
             "version_requirements": {},
             "missing_tools": [],
             "outdated_tools": [],
-            "health_summary": "AI analysis unavailable because no API key is configured.",
-            "critical_issues": [f"Missing API key ({config['api_key_env_var']})"],
-            "recommendations": [
-                f"Create backend/.env with {config['api_key_env_var']}=your_key and restart the server, "
-                "or click the ⚙ Settings button in the app and enter your key."
-            ],
+            "health_summary": "",
+            "critical_issues": [],
+            "recommendations": [],
         }
 
     system_prompt = (
@@ -446,9 +440,9 @@ async def analyze_project_async(
             "version_requirements": {},
             "missing_tools": [],
             "outdated_tools": [],
-            "health_summary": "AI analysis unavailable due to an AI error.",
-            "critical_issues": ["AI request failed"],
-            "recommendations": ["Verify your API key is valid and you have network access, then retry."],
+            "health_summary": "",
+            "critical_issues": [],
+            "recommendations": [],
         }
 
 
@@ -524,4 +518,46 @@ def get_install_command(
             "command": "",
             "notes": "AI request failed.",
             "error": str(e),
+        }
+
+
+def get_ai_key_status(
+    dynamic_key: Optional[str] = None,
+    dynamic_base_url: Optional[str] = None,
+    dynamic_model: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Validate AI credentials without exposing secret values."""
+    config = _get_ai_config(dynamic_key, dynamic_base_url, dynamic_model)
+    source = "custom" if (dynamic_key or "").strip() else "default"
+    client = _ai_sync_client(dynamic_key, dynamic_base_url, dynamic_model)
+    if client is None:
+        return {
+            "ok": False,
+            "source": source,
+            "provider": config.get("provider", ""),
+            "model": config.get("model", ""),
+            "message": "No API key configured.",
+        }
+    try:
+        resp = client.chat.completions.create(
+            model=config["model"],
+            temperature=0,
+            max_tokens=1,
+            messages=[{"role": "user", "content": "ping"}],
+        )
+        _ = resp.choices[0].message.content
+        return {
+            "ok": True,
+            "source": source,
+            "provider": config.get("provider", ""),
+            "model": config.get("model", ""),
+            "message": "AI key is valid.",
+        }
+    except Exception as e:
+        return {
+            "ok": False,
+            "source": source,
+            "provider": config.get("provider", ""),
+            "model": config.get("model", ""),
+            "message": f"AI key check failed: {e}",
         }

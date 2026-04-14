@@ -39,6 +39,7 @@ class StackScanRecord(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
     stack_name: str = Field(default="")
+    client_id: str = Field(default="anonymous", index=True)
     user_input_summary: str = Field(default="")
     results_json: str = Field(default="")
     summary_json: str = Field(default="")

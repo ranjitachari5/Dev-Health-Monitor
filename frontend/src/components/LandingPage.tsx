@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Play, Cpu, Zap, Shield, Activity } from 'lucide-react';
+import type { AiKeyStatus } from '../api/client';
 interface LandingPageProps {
   onQuickScan: () => void | Promise<void>;
   onDescribeProject: () => void;
   onViewHistory: () => void;
   onSetApiKey: () => void;
+  aiKeyStatus: AiKeyStatus | null;
 }
 
 const FEATURES = [
@@ -19,6 +21,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onDescribeProject,
   onViewHistory,
   onSetApiKey,
+  aiKeyStatus,
 }) => {
   const [platform, setPlatform] = useState<string>('');
   const [isScanning, setIsScanning] = useState(false);
@@ -114,8 +117,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             className={`inline-flex items-center gap-2 mb-8 px-5 py-2.5 rounded-full glass-card animate-fade-in-up`}
             style={{ animationDelay: '0ms', border: '1px solid rgba(59,130,246,0.25)' }}
           >
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" style={{ boxShadow: '0 0 8px #34d399' }} />
-            <span className="text-sm text-blue-200 font-medium">OpenRouter AI · Multi-model analysis</span>
+            <div
+              className={`w-2 h-2 rounded-full ${aiKeyStatus?.ok ? 'bg-emerald-400' : 'bg-red-400'} animate-pulse`}
+              style={{ boxShadow: aiKeyStatus?.ok ? '0 0 8px #34d399' : '0 0 8px #f87171' }}
+            />
+            <span className="text-sm text-blue-200 font-medium">
+              {aiKeyStatus
+                ? `AI Key Status: ${aiKeyStatus.ok ? 'Valid' : 'Invalid'} (${aiKeyStatus.source === 'custom' ? 'Your key' : 'Default brain'})`
+                : 'Checking AI key status...'}
+            </span>
           </div>
 
           {/* Headline */}

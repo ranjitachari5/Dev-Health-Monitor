@@ -20,7 +20,13 @@ load_dotenv()
 
 from database import create_db_and_tables, get_session
 from models import ProjectConfig, ScanLog, StackScanRecord, ToolHealth
-from core.ai_advisor import analyze_project, analyze_project_async, get_install_command, resolve_dependencies
+from core.ai_advisor import (
+    analyze_project,
+    analyze_project_async,
+    get_ai_key_status,
+    get_install_command,
+    resolve_dependencies,
+)
 from core.auto_fixer import detect_platform as detect_fix_platform
 from core.auto_fixer import trigger_fix
 from core.config_parser import get_config_value
@@ -75,6 +81,19 @@ def ping() -> Dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/api/ai-status")
+def ai_status(
+    x_ai_api_key: Optional[str] = Header(None),
+    x_ai_base_url: Optional[str] = Header(None),
+    x_ai_model: Optional[str] = Header(None),
+) -> Dict[str, Any]:
+    return get_ai_key_status(
+        dynamic_key=x_ai_api_key,
+        dynamic_base_url=x_ai_base_url,
+        dynamic_model=x_ai_model,
+    )
+
+
 # ─── Scan Models ───────────────────────────────────────────────────────────
 
 class ScanRequest(BaseModel):
@@ -95,42 +114,21 @@ async def api_scan(
     x_ai_api_key: Optional[str] = Header(None),
     x_ai_base_url: Optional[str] = Header(None),
     x_ai_model: Optional[str] = Header(None),
+    x_client_id: Optional[str] = Header(None),
 ) -> Dict[str, Any]:
     try:
-        stack_name = "Unknown"
-        normalized_tools: List[Dict[str, Any]] = []
-        dependency_error: Optional[str] = None
-
-        try:
-            resolved = await resolve_dependencies(
-                req.user_input, req.detected_tools,
-                dynamic_key=x_ai_api_key,
-                dynamic_base_url=x_ai_base_url,
-                dynamic_model=x_ai_model,
-            )
-            stack_name = str(resolved.get("stack_name") or "Unknown")
-            raw_tools = resolved.get("required_tools") or []
-            if not isinstance(raw_tools, list):
-                raw_tools = []
-            normalized_tools = [item for item in raw_tools if isinstance(item, dict)]
-        except Exception as e:
-            # Keep the scan usable even if provider defaults are unavailable.
-            dependency_error = str(e)
-            fallback_names = [str(t).strip().lower() for t in (req.detected_tools or []) if str(t).strip()]
-            normalized_tools = [
-                {
-                    "name": name,
-                    "display_name": name,
-                    "category": "devtool",
-                    "check_command": f"{name} --version",
-                    "install_url": "https://",
-                    "why_needed": "Detected from project input (fallback mode).",
-                    "min_version": None,
-                }
-                for name in fallback_names
-            ]
-            if fallback_names:
-                stack_name = "Fallback scan"
+        client_id = (x_client_id or "anonymous").strip() or "anonymous"
+        resolved = await resolve_dependencies(
+            req.user_input, req.detected_tools,
+            dynamic_key=x_ai_api_key,
+            dynamic_base_url=x_ai_base_url,
+            dynamic_model=x_ai_model,
+        )
+        stack_name = str(resolved.get("stack_name") or "Unknown")
+        raw_tools = resolved.get("required_tools") or []
+        if not isinstance(raw_tools, list):
+            raw_tools = []
+        normalized_tools: List[Dict[str, Any]] = [item for item in raw_tools if isinstance(item, dict)]
 
         results = await scan_environment(normalized_tools)
 
@@ -146,26 +144,12 @@ async def api_scan(
 
         user_input_summary = (req.user_input or "")[:200]
 
-        try:
-            ai = await analyze_project_async(
-                user_input_summary, results,
-                dynamic_key=x_ai_api_key,
-                dynamic_base_url=x_ai_base_url,
-                dynamic_model=x_ai_model,
-            )
-        except Exception as e:
-            ai = {
-                "required_tools": [],
-                "missing_tools": [],
-                "outdated_tools": [],
-                "health_summary": "AI analysis unavailable. Showing direct scan results only.",
-                "critical_issues": [],
-                "recommendations": [],
-                "version_requirements": {},
-                "error": str(e),
-            }
-        if dependency_error and not ai.get("error"):
-            ai["error"] = f"Dependency resolution fallback used: {dependency_error}"
+        ai = await analyze_project_async(
+            user_input_summary, results,
+            dynamic_key=x_ai_api_key,
+            dynamic_base_url=x_ai_base_url,
+            dynamic_model=x_ai_model,
+        )
         ai_analysis = AIAnalysis(
             required_tools=ai.get("required_tools", []),
             missing_tools=ai.get("missing_tools", []),
@@ -189,6 +173,7 @@ async def api_scan(
 
         record = StackScanRecord(
             stack_name=stack_name,
+            client_id=client_id,
             user_input_summary=user_input_summary,
             results_json=json.dumps(results),
             summary_json=json.dumps(summary),
@@ -234,10 +219,15 @@ async def api_analyze_github(req: GithubRequest) -> Dict[str, Any]:
 @app.get("/api/history")
 def api_dynamic_history(
     session: Session = Depends(get_session),
+    x_client_id: Optional[str] = Header(None),
 ) -> List[Dict[str, Any]]:
     """Return recent scans."""
+    client_id = (x_client_id or "anonymous").strip() or "anonymous"
     rows = session.exec(
-        select(StackScanRecord).order_by(StackScanRecord.timestamp.desc()).limit(20)
+        select(StackScanRecord)
+        .where(StackScanRecord.client_id == client_id)
+        .order_by(StackScanRecord.timestamp.desc())
+        .limit(20)
     ).all()
 
     out: List[Dict[str, Any]] = []
@@ -262,11 +252,18 @@ def api_dynamic_history(
 
 
 @app.get("/api/scan/{scan_id}")
-def api_get_scan(scan_id: int, session: Session = Depends(get_session)) -> Dict[str, Any]:
+def api_get_scan(
+    scan_id: int,
+    session: Session = Depends(get_session),
+    x_client_id: Optional[str] = Header(None),
+) -> Dict[str, Any]:
     """Return a specific scan by id."""
+    client_id = (x_client_id or "anonymous").strip() or "anonymous"
     record = session.get(StackScanRecord, scan_id)
     if not record:
         raise HTTPException(status_code=404, detail="Scan not found")
+    if record.client_id != client_id:
+        raise HTTPException(status_code=403, detail="This scan belongs to another user.")
 
     try:
         results = json.loads(record.results_json) if record.results_json else []

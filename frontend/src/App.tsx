@@ -5,7 +5,7 @@ import { ScanDashboard } from './components/ScanDashboard';
 import { ScanHistory } from './components/ScanHistory';
 import { Squares } from './components/Squares';
 import { ApiKeyModal, loadStoredConfig, type ApiKeyConfig } from './components/ApiKeyModal';
-import { runHealthScan, runScan } from './api/client';
+import { getAiKeyStatus, type AiKeyStatus, runHealthScan, runScan } from './api/client';
 import type { AppView, HealthScanResponse, ScanResponse, ToolResult, ToolStatus } from './types';
 function mapHealthToScanResponse(h: HealthScanResponse): ScanResponse {
   const results: ToolResult[] = h.tools.map((t) => {
@@ -107,6 +107,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfig>(() => loadStoredConfig());
+  const [aiKeyStatus, setAiKeyStatus] = useState<AiKeyStatus | null>(null);
 
   // Cursor refs
   const dotRef = useRef<HTMLDivElement>(null);
@@ -134,6 +135,24 @@ function App() {
   useEffect(() => {
     rebindCursor();
   }, [view, rebindCursor]);
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const status = await getAiKeyStatus();
+        setAiKeyStatus(status);
+      } catch {
+        setAiKeyStatus({
+          ok: false,
+          source: apiKeyConfig.mode,
+          provider: '',
+          model: '',
+          message: 'Unable to verify key status.',
+        });
+      }
+    };
+    void run();
+  }, [apiKeyConfig]);
 
   const handleScan = async (req: { user_input: string; detected_tools: string[] }) => {
     setView('scanning');
@@ -208,6 +227,7 @@ function App() {
               onDescribeProject={() => setView('input')}
               onViewHistory={() => setView('history')}
               onSetApiKey={() => setIsApiKeyModalOpen(true)}
+              aiKeyStatus={aiKeyStatus}
             />
           )}
 
