@@ -127,12 +127,18 @@ body {
 }
 
 .glass-card:hover {
-  border-color: rgba(96, 165, 250, 0.35);
+  border-color: rgba(96, 165, 250, 0.55);
+  background: linear-gradient(
+    135deg,
+    rgba(20, 40, 100, 0.65) 0%,
+    rgba(10, 10, 40, 0.8) 100%
+  );
   box-shadow:
-    0 16px 60px rgba(0, 0, 0, 0.5),
-    0 0 40px rgba(30, 64, 175, 0.15),
-    inset 0 1px 0 rgba(96, 165, 250, 0.2);
-  transform: translateY(-3px) rotateX(1deg);
+    0 16px 60px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(96,165,250,0.3),
+    0 0 40px rgba(59, 130, 246, 0.18),
+    inset 0 1px 0 rgba(96, 165, 250, 0.25);
+  transform: translateY(-4px) scale(1.01);
 }
 
 /* ─────────────── TOOL CARDS 3D ─────────────── */
@@ -163,6 +169,7 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
+/* shimmer sweep */
 .btn-neon::before {
   content: '';
   position: absolute;
@@ -173,29 +180,44 @@ body {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.18),
     transparent
   );
   transform: skewX(-20deg);
-  transition: left 0.5s ease;
+  transition: left 0.45s ease;
 }
 
-.btn-neon:hover::before {
-  left: 120%;
+/* neon border glow ring on hover */
+.btn-neon::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #60a5fa, #a78bfa, #38bdf8);
+  opacity: 0;
+  z-index: -1;
+  transition: opacity 0.3s ease;
+  filter: blur(6px);
 }
+
+.btn-neon:hover::before { left: 120%; }
+.btn-neon:hover::after  { opacity: 0.45; }
 
 .btn-neon:hover {
   background: linear-gradient(135deg, #1e40af, #2563eb);
-  border-color: rgba(96, 165, 250, 0.7);
+  border-color: rgba(96, 165, 250, 0.85);
   box-shadow:
-    0 0 30px rgba(59, 130, 246, 0.4),
-    0 0 60px rgba(30, 64, 175, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  transform: translateY(-2px);
+    0 0 0 1px rgba(96,165,250,0.5),
+    0 0 30px rgba(59, 130, 246, 0.55),
+    0 0 70px rgba(30, 64, 175, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-3px) scale(1.02);
+  color: #ffffff;
 }
 
 .btn-neon:active {
-  transform: translateY(0px);
+  transform: translateY(0px) scale(0.98);
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
 }
 
 /* ─────────────── GRADIENT TEXT ─────────────── */
@@ -382,7 +404,11 @@ body {
 }
 
 .chip-btn:hover {
-  transform: translateY(-2px) scale(1.05);
+  transform: translateY(-3px) scale(1.08);
+  border-color: rgba(96,165,250,0.55) !important;
+  color: #ffffff;
+  background: rgba(37,99,235,0.25) !important;
+  box-shadow: 0 0 14px rgba(59,130,246,0.3), 0 4px 16px rgba(0,0,0,0.3);
 }
 
 .chip-btn.selected {
@@ -420,24 +446,28 @@ body {
 .nav-link {
   position: relative;
   color: rgba(148, 163, 184, 0.8);
-  transition: color 0.2s;
+  transition: color 0.25s, background 0.25s, transform 0.2s;
+  border-radius: 8px;
 }
 
 .nav-link::after {
   content: '';
   position: absolute;
   bottom: -2px;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--blue-glow);
+  left: 10%;
+  right: 10%;
+  height: 1.5px;
+  background: linear-gradient(90deg, #60a5fa, #a78bfa);
   transform: scaleX(0);
-  transition: transform 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.23,1,0.32,1);
   box-shadow: 0 0 8px var(--blue-glow);
+  border-radius: 2px;
 }
 
 .nav-link:hover {
-  color: #e2e8ff;
+  color: #ffffff;
+  background: rgba(59,130,246,0.1);
+  transform: translateY(-1px);
 }
 
 .nav-link:hover::after {
@@ -458,6 +488,59 @@ a {
 input, textarea, select {
   font-family: inherit;
   cursor: none;
+}
+
+/* ─────────────── MODE TAB HOVER ─────────────── */
+/* Applied to the mode selector buttons in ProjectInput */
+.mode-tab {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.28s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.mode-tab::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(124,58,237,0.1));
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  border-radius: inherit;
+}
+
+.mode-tab:hover::before { opacity: 1; }
+
+.mode-tab:hover {
+  color: #e2e8ff !important;
+  box-shadow: 0 0 18px rgba(59,130,246,0.2), inset 0 0 10px rgba(96,165,250,0.05);
+  transform: translateY(-1px);
+  border: 1px solid rgba(96,165,250,0.3);
+}
+
+/* ─────────────── TEMPLATE CARD HOVER ─────────────── */
+.template-card {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.template-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(124,58,237,0.08));
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.template-card:hover::after { opacity: 1; }
+
+.template-card:hover {
+  border-color: rgba(96,165,250,0.45) !important;
+  box-shadow: 0 0 24px rgba(59,130,246,0.2), 0 8px 30px rgba(0,0,0,0.4) !important;
+  transform: translateY(-4px) scale(1.03);
+  background: rgba(15,15,50,0.75) !important;
 }
 
 /* ─────────────── SCORE RING GLOW ─────────────── */

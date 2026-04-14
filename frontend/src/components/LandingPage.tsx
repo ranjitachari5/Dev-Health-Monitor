@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Play, Cpu, Zap, Shield, Activity } from 'lucide-react';
 import { ApiKeyButton } from './ApiKeyModal';
 interface LandingPageProps {
@@ -43,6 +43,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     };
     window.addEventListener('mousemove', handleMove);
     return () => window.removeEventListener('mousemove', handleMove);
+  }, []);
+
+  // Sliding fill-pill for CTA buttons
+  const ctaContainerRef = useRef<HTMLDivElement>(null);
+  const ctaBtnRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [ctaPill, setCtaPill] = useState({ left: 0, top: 0, width: 0, height: 0, ready: false });
+
+  const snapPillTo = (idx: number) => {
+    const btn = ctaBtnRefs.current[idx];
+    const container = ctaContainerRef.current;
+    if (!btn || !container) return;
+    const b = btn.getBoundingClientRect();
+    const c = container.getBoundingClientRect();
+    setCtaPill({ left: b.left - c.left, top: b.top - c.top, width: b.width, height: b.height, ready: true });
+  };
+
+  // Place pill on btn-0 after first paint
+  useEffect(() => {
+    const t = setTimeout(() => snapPillTo(0), 350);
+    return () => clearTimeout(t);
   }, []);
 
   const handleQuickScan = async () => {
@@ -131,14 +151,42 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           {/* CTA Buttons */}
           <div
-            className={`flex flex-col sm:flex-row gap-4 justify-center mb-16 animate-fade-in-up`}
+            ref={ctaContainerRef}
+            className={`relative flex flex-col sm:flex-row gap-4 justify-center mb-16 animate-fade-in-up`}
             style={{ animationDelay: '300ms' }}
+            onMouseLeave={() => snapPillTo(0)}
           >
+            {/* Sliding solid-blue fill — this IS the button colour */}
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                left: ctaPill.left,
+                top: ctaPill.top,
+                width: ctaPill.width,
+                height: ctaPill.height,
+                opacity: ctaPill.ready ? 1 : 0,
+                borderRadius: '0.75rem',
+                pointerEvents: 'none',
+                zIndex: 0,
+                background: 'linear-gradient(135deg, #1e3a8a, #2563eb)',
+                border: '1px solid rgba(96,165,250,0.7)',
+                boxShadow:
+                  '0 0 28px rgba(59,130,246,0.55), 0 0 60px rgba(30,64,175,0.3), inset 0 1px 0 rgba(255,255,255,0.15)',
+                transition:
+                  'left 0.35s cubic-bezier(0.23,1,0.32,1), top 0.35s cubic-bezier(0.23,1,0.32,1), width 0.35s cubic-bezier(0.23,1,0.32,1), height 0.35s cubic-bezier(0.23,1,0.32,1), opacity 0.2s ease',
+              }}
+            />
+
+            {/* Both buttons are transparent shells — pill provides the fill */}
             <button
+              ref={el => { ctaBtnRefs.current[0] = el; }}
               type="button"
               onClick={() => void handleQuickScan()}
               disabled={isScanning}
-              className="btn-neon group flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl text-white font-semibold text-base animate-glow-pulse disabled:opacity-50 disabled:cursor-not-allowed"
+              onMouseEnter={() => snapPillTo(0)}
+              className="relative z-10 group flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl text-white font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: 'transparent', border: '1px solid transparent', transition: 'color 0.25s' }}
               data-hover
             >
               {isScanning ? (
@@ -154,10 +202,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               )}
             </button>
             <button
+              ref={el => { ctaBtnRefs.current[1] = el; }}
               type="button"
               onClick={onDescribeProject}
               disabled={isScanning}
-              className="glass-card flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-blue-100 font-semibold text-base disabled:opacity-50 hover:text-white"
+              onMouseEnter={() => snapPillTo(1)}
+              className="relative z-10 flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-semibold text-base disabled:opacity-50"
+              style={{ background: 'transparent', border: '1px solid rgba(96,165,250,0.25)', color: 'rgba(191,219,254,0.85)', transition: 'color 0.25s, border-color 0.25s' }}
               data-hover
             >
               Describe Project →
