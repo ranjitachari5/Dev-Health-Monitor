@@ -5,7 +5,16 @@ import { ScanDashboard } from './components/ScanDashboard';
 import { ScanHistory } from './components/ScanHistory';
 import { Squares } from './components/Squares';
 import { ApiKeyModal, ApiKeyButton, loadStoredConfig, saveStoredConfig } from './components/ApiKeyModal';
-import { runHealthScan, runScan } from './api/client';
+import { AuthPage } from './components/AuthPage';
+import { BrainModal } from './components/BrainModal';
+import {
+  runHealthScan,
+  runScan,
+  getStoredToken,
+  setStoredToken,
+  clearAuth,
+  BRAIN_CHOSEN_KEY,
+} from './api/client';
 import type { AppView, HealthScanResponse, ScanResponse, ToolResult, ToolStatus } from './types';
 
 /** Compute a proper 0-100 health score from scan results */
@@ -14,7 +23,6 @@ function computeScore(results: ToolResult[]): number {
   const ok = results.filter((r) => r.status === 'ok').length;
   const outdated = results.filter((r) => r.status === 'outdated').length;
   const total = results.length;
-  // ok = full credit, outdated = half credit, missing = 0
   return Math.max(0, Math.min(100, Math.round(((ok + outdated * 0.5) / total) * 100)));
 }
 
@@ -56,7 +64,6 @@ function mapHealthToScanResponse(h: HealthScanResponse): ScanResponse {
   };
 }
 
-
 /* ─── Custom cursor ────────────────────────────────────────────────── */
 function useCursor(
   dotRef: React.RefObject<HTMLDivElement>,
@@ -74,9 +81,6 @@ function useCursor(
     const onMove = (e: MouseEvent) => {
       mx = e.clientX;
       my = e.clientY;
-      // Update CSS vars for the glow layer
-      document.documentElement.style.setProperty('--cursor-x', `${mx}px`);
-      document.documentElement.style.setProperty('--cursor-y', `${my}px`);
     };
 
     const animate = () => {
@@ -112,15 +116,34 @@ function useCursor(
 }
 
 /* ─── App component ─────────────────────────────────────────────────── */
+
+/**
+ * Determine the initial view:
+ *   - No JWT              → 'auth'
+ *   - JWT but no brain    → 'brain'
+ *   - JWT + brain chosen  → 'landing'
+ */
+function getInitialView(): AppView {
+  const token = getStoredToken();
+  if (!token) return 'auth';
+  const brainChosen = localStorage.getItem(BRAIN_CHOSEN_KEY);
+  if (!brainChosen) return 'brain';
+  return 'landing';
+}
+
 function App() {
-  const [view, setView] = useState<AppView>('landing');
+  const [view, setView] = useState<AppView>(getInitialView);
+  const [userEmail, setUserEmail] = useState<string | null>(() => {
+    // Restore email from localStorage if present
+    return localStorage.getItem('devhealth_email');
+  });
   const [scanData, setScanData] = useState<ScanResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aiConfig, setAiConfig] = useState(() => {
     const cfg = loadStoredConfig();
-    // Auto-upgrade stale Gemini config (old model / trailing slash URL)
+    // Auto-upgrade stale Gemini config
     if (
       cfg.provider === 'gemini' &&
       (cfg.model === 'gemini-1.5-flash' || cfg.baseUrl.endsWith('/'))
@@ -165,6 +188,33 @@ function App() {
     rebindCursor();
   }, [view, rebindCursor]);
 
+  // ── Auth handlers ──────────────────────────────────────────────────
+  const handleAuth = (token: string, email: string) => {
+    setStoredToken(token);
+    localStorage.setItem('devhealth_email', email);
+    setUserEmail(email);
+    // After auth always show brain modal (first session or new login)
+    localStorage.removeItem(BRAIN_CHOSEN_KEY);
+    setView('brain');
+  };
+
+  const handleBrainConfirm = () => {
+    localStorage.setItem(BRAIN_CHOSEN_KEY, '1');
+    // Reload AI config from storage (BrainModal may have updated it)
+    setAiConfig(loadStoredConfig());
+    setView('landing');
+  };
+
+  const handleLogout = () => {
+    clearAuth();
+    localStorage.removeItem('devhealth_email');
+    setUserEmail(null);
+    setScanData(null);
+    setError(null);
+    setView('auth');
+  };
+
+  // ── Scan handlers ──────────────────────────────────────────────────
   const handleScan = async (req: { user_input: string; detected_tools: string[] }) => {
     setView('scanning');
     setIsLoading(true);
@@ -211,14 +261,37 @@ function App() {
     setView('results');
   };
 
+  // ── Auth / Brain views (full screen, no background canvas needed) ──
+  if (view === 'auth') {
+    return (
+      <>
+        <div className="cursor-dot" ref={dotRef} />
+        <div className="cursor-ring" ref={ringRef} />
+        <AuthPage onAuth={handleAuth} />
+      </>
+    );
+  }
+
+  if (view === 'brain') {
+    return (
+      <>
+        <div className="cursor-dot" ref={dotRef} />
+        <div className="cursor-ring" ref={ringRef} />
+        <div className="w-full h-screen bg-[#050510] flex items-center justify-center">
+          <BrainModal onConfirm={handleBrainConfirm} />
+        </div>
+      </>
+    );
+  }
+
+  // ── Main app views ─────────────────────────────────────────────────
   return (
     <div className="w-full h-screen bg-[#1A1A1B] overflow-hidden flex flex-col items-center justify-center relative">
       {/* ── Global overlay layers ── */}
       <div className="cursor-dot" ref={dotRef} />
       <div className="cursor-ring" ref={ringRef} />
-      <div className="cursor-glow-layer pointer-events-none" />
 
-      {/* API Key Modal — always rendered at root */}
+      {/* API Key Modal */}
       <ApiKeyModal
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
@@ -226,13 +299,13 @@ function App() {
         currentConfig={aiConfig}
       />
 
-      {/* Container with soft shadow for premium feel */}
+      {/* Container */}
       <div className="relative w-full h-full overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.2)] bg-black/20">
         <div className="absolute inset-0 z-0">
-          <Squares 
-            speed={0.5} 
+          <Squares
+            speed={0.5}
             squareSize={40}
-            direction="diagonal" 
+            direction="diagonal"
             borderColor="#333"
             hoverFillColor="#3b82f6"
           />
@@ -268,6 +341,20 @@ function App() {
                     className="nav-link text-sm"
                   >
                     View history
+                  </button>
+                  {/* Logout */}
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="text-xs px-3 py-1.5 rounded-lg transition-all"
+                    style={{
+                      background: 'rgba(185,28,28,0.1)',
+                      border: '1px solid rgba(239,68,68,0.2)',
+                      color: 'rgba(252,165,165,0.7)',
+                    }}
+                    title={`Logged in as ${userEmail ?? ''}`}
+                  >
+                    Logout
                   </button>
                 </div>
               </div>

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -19,7 +19,14 @@ from sqlmodel import Session, select
 load_dotenv()
 
 from database import create_db_and_tables, get_session
-from models import ProjectConfig, ScanLog, StackScanRecord, ToolHealth
+from models import ProjectConfig, ScanLog, StackScanRecord, ToolHealth, User
+from auth import (
+    create_access_token,
+    decode_token,
+    get_current_user_email,
+    hash_password,
+    verify_password,
+)
 from core.ai_advisor import analyze_project, analyze_project_async, get_install_command, resolve_dependencies
 from core.auto_fixer import detect_platform as detect_fix_platform
 from core.auto_fixer import trigger_fix
@@ -47,6 +54,37 @@ app.add_middleware(
 )
 
 
+# ─── Internal helpers ──────────────────────────────────────────────────────
+
+def _get_optional_user_id(request: Request, session: Session) -> Optional[int]:
+    """Extract user_id from a Bearer token if present, else return None."""
+    auth_header = request.headers.get("authorization", "")
+    if not auth_header.lower().startswith("bearer "):
+        return None
+    token = auth_header[7:].strip()
+    try:
+        email = decode_token(token)
+        user = session.exec(select(User).where(User.email == email)).first()
+        return user.id if user else None
+    except Exception:
+        return None
+
+
+def _require_user(request: Request, session: Session) -> User:
+    """Extract and validate Bearer token, returning the User ORM object. Raises 401 on failure."""
+    auth_header = request.headers.get("authorization", "")
+    if not auth_header.lower().startswith("bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required. Please log in.")
+    token = auth_header[7:].strip()
+    email = decode_token(token)
+    user = session.exec(select(User).where(User.email == email)).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found.")
+    return user
+
+
+# ─── Root / Ping ───────────────────────────────────────────────────────────
+
 @app.get("/")
 def root() -> Dict[str, Any]:
     return {
@@ -63,6 +101,9 @@ def root() -> Dict[str, Any]:
             "fix": "/api/fix/{tool_name}?fix_type=install|path|update",
             "history": "/api/scan/history",
             "install_command": "/api/install-command/{tool_name}",
+            "register": "/api/auth/register",
+            "login": "/api/auth/login",
+            "me": "/api/auth/me",
         },
     }
 
@@ -71,6 +112,64 @@ def root() -> Dict[str, Any]:
 def ping() -> Dict[str, str]:
     return {"status": "ok"}
 
+
+# ─── Auth Endpoints ────────────────────────────────────────────────────────
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class AuthResponse(BaseModel):
+    token: str
+    email: str
+    message: str
+
+
+@app.post("/api/auth/register", response_model=AuthResponse)
+def register(req: RegisterRequest, session: Session = Depends(get_session)) -> AuthResponse:
+    """Create a new user account and return a JWT."""
+    existing = session.exec(select(User).where(User.email == req.email)).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    if len(req.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    user = User(email=req.email.lower().strip(), hashed_password=hash_password(req.password))
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    token = create_access_token(user.email)
+    return AuthResponse(token=token, email=user.email, message="Registration successful")
+
+
+@app.post("/api/auth/login", response_model=AuthResponse)
+def login(req: LoginRequest, session: Session = Depends(get_session)) -> AuthResponse:
+    """Verify credentials and return a JWT."""
+    user = session.exec(select(User).where(User.email == req.email.lower().strip())).first()
+    if not user or not verify_password(req.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    token = create_access_token(user.email)
+    return AuthResponse(token=token, email=user.email, message="Login successful")
+
+
+@app.get("/api/auth/me")
+def get_me(
+    email: str = Depends(get_current_user_email),
+    session: Session = Depends(get_session),
+) -> Dict[str, Any]:
+    """Return the currently authenticated user's profile."""
+    user = session.exec(select(User).where(User.email == email)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"id": user.id, "email": user.email, "created_at": user.created_at.isoformat()}
+
+
+# ─── Scan Models ───────────────────────────────────────────────────────────
 
 class ScanRequest(BaseModel):
     user_input: str
@@ -81,15 +180,21 @@ class GithubRequest(BaseModel):
     repo_url: str
 
 
+# ─── Scan Endpoint (auth optional — attaches user_id if logged in) ─────────
+
 @app.post("/api/scan")
 async def api_scan(
     req: ScanRequest,
+    request: Request,
     session: Session = Depends(get_session),
     x_ai_api_key: Optional[str] = Header(None),
     x_ai_base_url: Optional[str] = Header(None),
     x_ai_model: Optional[str] = Header(None),
 ) -> Dict[str, Any]:
     try:
+        # Resolve user (optional)
+        user_id = _get_optional_user_id(request, session)
+
         resolved = await resolve_dependencies(
             req.user_input, req.detected_tools,
             dynamic_key=x_ai_api_key,
@@ -101,11 +206,9 @@ async def api_scan(
         if not isinstance(raw_tools, list):
             raw_tools = []
 
-        normalized_tools: List[Dict[str, Any]] = []
-        for item in raw_tools:
-            if not isinstance(item, dict):
-                continue
-            normalized_tools.append(item)
+        normalized_tools: List[Dict[str, Any]] = [
+            item for item in raw_tools if isinstance(item, dict)
+        ]
 
         results = await scan_environment(normalized_tools)
 
@@ -137,8 +240,8 @@ async def api_scan(
             version_requirements=ai.get("version_requirements", {}),
             error=ai.get("error"),
         ).dict()
-        
-        # Compute overall_score as a percentage: ok=full, outdated=half, missing=0
+
+        # Compute overall_score
         total_tools = len(results)
         if total_tools == 0:
             score = 100
@@ -153,6 +256,7 @@ async def api_scan(
             user_input_summary=user_input_summary,
             results_json=json.dumps(results),
             summary_json=json.dumps(summary),
+            user_id=user_id,  # links scan to authenticated user
         )
         session.add(record)
         session.commit()
@@ -190,9 +294,23 @@ async def api_analyze_github(req: GithubRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+# ─── History Endpoint (auth required — user sees only their scans) ─────────
+
 @app.get("/api/history")
-def api_dynamic_history(session: Session = Depends(get_session)) -> List[Dict[str, Any]]:
-    rows = session.exec(select(StackScanRecord).order_by(StackScanRecord.timestamp.desc()).limit(20)).all()
+def api_dynamic_history(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> List[Dict[str, Any]]:
+    """Return recent scans for the authenticated user only."""
+    user = _require_user(request, session)
+
+    rows = session.exec(
+        select(StackScanRecord)
+        .where(StackScanRecord.user_id == user.id)
+        .order_by(StackScanRecord.timestamp.desc())
+        .limit(20)
+    ).all()
+
     out: List[Dict[str, Any]] = []
     for r in rows:
         try:
@@ -215,10 +333,18 @@ def api_dynamic_history(session: Session = Depends(get_session)) -> List[Dict[st
 
 
 @app.get("/api/scan/{scan_id}")
-def api_get_scan(scan_id: int, session: Session = Depends(get_session)) -> Dict[str, Any]:
+def api_get_scan(scan_id: int, request: Request, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    """Return a specific scan — only accessible to the owning user or if scan has no user attached."""
     record = session.get(StackScanRecord, scan_id)
     if not record:
         raise HTTPException(status_code=404, detail="Scan not found")
+
+    # Enforce ownership if the scan has a user_id
+    if record.user_id is not None:
+        user = _require_user(request, session)
+        if record.user_id != user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
     try:
         results = json.loads(record.results_json) if record.results_json else []
     except json.JSONDecodeError:
@@ -250,18 +376,23 @@ def _compute_overall_score(tools: List[Dict[str, Any]]) -> int:
     full = 0
     partial = 0
     for t in tools:
-        status = (t.get("status") or "Unknown").lower()
+        s = (t.get("status") or "Unknown").lower()
         installed = bool(t.get("is_installed"))
-        if installed and status in ("healthy", "ok"):
+        if installed and s in ("healthy", "ok"):
             full += 1
-        elif installed and status in ("warning", "unknown"):
+        elif installed and s in ("warning", "unknown"):
             partial += 1
-        # missing / critical = 0 credit
     score = int(round(((full + partial * 0.5) / total) * 100))
     return max(0, min(100, score))
 
 
-def _persist_scan(session: Session, platform_name: str, tools: List[Dict[str, Any]], project_description: Optional[str] = None, ai_summary: Optional[str] = None) -> ScanLog:
+def _persist_scan(
+    session: Session,
+    platform_name: str,
+    tools: List[Dict[str, Any]],
+    project_description: Optional[str] = None,
+    ai_summary: Optional[str] = None,
+) -> ScanLog:
     scan = ScanLog(
         timestamp=datetime.utcnow(),
         overall_score=_compute_overall_score(tools),
@@ -293,6 +424,8 @@ def _persist_scan(session: Session, platform_name: str, tools: List[Dict[str, An
 def on_startup() -> None:
     create_db_and_tables()
 
+
+# ─── Pydantic models ───────────────────────────────────────────────────────
 
 class AnalyzeBody(BaseModel):
     project_description: str
@@ -372,6 +505,8 @@ class InstallCommandResponse(BaseModel):
     raw_response: Optional[str] = None
 
 
+# ─── Remaining endpoints ───────────────────────────────────────────────────
+
 @app.get("/api/health", response_model=HealthResponse)
 def get_health(session: Session = Depends(get_session)) -> HealthResponse:
     platform_name = detect_scan_platform()
@@ -423,11 +558,10 @@ def post_analyze(
         ai_summary=ai_summary if isinstance(ai_summary, str) else None,
     )
 
-    # Store raw AI JSON response
     session.add(ProjectConfig(description=body.project_description, ai_response=json.dumps(ai)))
     session.commit()
 
-    response = AnalyzeResponse(
+    return AnalyzeResponse(
         scan_results=[ToolInfo(**t) for t in scan_results],
         ai_analysis=AIAnalysis(
             required_tools=ai.get("required_tools", []),
@@ -444,7 +578,6 @@ def post_analyze(
         platform=platform_name,
         timestamp=scan.timestamp,
     )
-    return response
 
 
 @app.post("/api/fix/{tool_name}", response_model=FixResponse)
@@ -479,11 +612,7 @@ def fix_stream(
     tool_name: str,
     fix_type: str = Query("install", pattern="^(install|update)$"),
 ) -> StreamingResponse:
-    """
-    Run the install script for a tool and stream output line-by-line as SSE.
-    Each event: data: <line>\n\n
-    A special final event: data: __DONE__:<exit_code>\n\n
-    """
+    """Run the install script for a tool and stream output line-by-line as SSE."""
     plat = detect_fix_platform()
     scripts_dir = Path(__file__).resolve().parent / "scripts"
 
@@ -516,7 +645,7 @@ def fix_stream(
                 clean = line.rstrip("\r\n")
                 yield f"data: {clean}\n\n"
             proc.wait()
-            yield f"data: \n\n"
+            yield "data: \n\n"
             if proc.returncode == 0:
                 yield f"data: ✓ Installation complete for {tool_name}\n\n"
             else:
@@ -598,4 +727,3 @@ def get_install_cmd(
         error=res.get("error"),
         raw_response=res.get("raw_response"),
     )
-

@@ -6,6 +6,15 @@ from typing import Optional
 from sqlmodel import Field, SQLModel
 
 
+class User(SQLModel, table=True):
+    """Registered user account."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(unique=True, index=True)
+    hashed_password: str
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+
 class ScanLog(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
@@ -34,7 +43,7 @@ class ProjectConfig(SQLModel, table=True):
 
 
 class StackScanRecord(SQLModel, table=True):
-    """Persists dynamic stack scans (Grok + local subprocess checks)."""
+    """Persists dynamic stack scans — linked to a specific user for data isolation."""
 
     id: Optional[int] = Field(default=None, primary_key=True)
     timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
@@ -42,4 +51,5 @@ class StackScanRecord(SQLModel, table=True):
     user_input_summary: str = Field(default="")
     results_json: str = Field(default="")
     summary_json: str = Field(default="")
-
+    # FK to User — nullable so historical rows without a user remain valid
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)

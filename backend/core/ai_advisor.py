@@ -34,6 +34,14 @@ def detect_provider_from_key(api_key: str) -> Dict[str, str]:
             "model": "claude-3-5-sonnet-20241022",
         }
 
+    # OpenRouter: sk-or-... (must be checked BEFORE generic sk-)
+    if key.startswith("sk-or-"):
+        return {
+            "provider": "openrouter",
+            "base_url": "https://openrouter.ai/api/v1",
+            "model": "google/gemma-3-27b-it:free",
+        }
+
     # Google Gemini: AIza...
     if key.startswith("AIza"):
         return {
@@ -50,7 +58,6 @@ def detect_provider_from_key(api_key: str) -> Dict[str, str]:
             "model": "llama-3.3-70b-versatile",
         }
 
-    # DeepSeek: starting with "sk-" but different — check env/config later
     # OpenAI: sk-proj-... or sk-...
     if key.startswith("sk-"):
         return {
