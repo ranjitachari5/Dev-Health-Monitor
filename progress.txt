@@ -1,6 +1,0 @@
-Task: Fix `about:blank#blocked` for Install / Update Links
-- Created `frontend/src/utils/urlFormatter.ts` with `formatValidUrl` to handle missing protocols or invalid urls like 'n/a' and 'null'.
-- Updated `frontend/src/components/ToolCard.tsx` to conditionally render the install link using the newly formatted URL.
-- Updated `frontend/src/components/DownloadModal.tsx` to conditionally render the install link using the formatted URL.
-----------
-ralph-done-lepud

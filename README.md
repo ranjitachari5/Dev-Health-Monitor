@@ -1,61 +1,55 @@
 # 🩺 Dev Health Monitor
 
-A full-stack AI-powered developer environment health checker. Describe your tech stack, and let the app scan your machine for missing tools, outdated versions, and configuration issues — then get actionable AI-generated recommendations to fix them.
+A full-stack web application that analyzes your local development environment — detecting installed tools, missing dependencies, and overall dev readiness — with AI-powered insights and fix suggestions.
 
 ---
 
-## ✨ Features
+## 📌 Overview
 
-- 🤖 **AI-Powered Analysis** — Supports OpenAI (ChatGPT), Anthropic (Claude), Google Gemini, Groq (LLaMA), or any OpenAI-compatible endpoint
-- 🔑 **Bring Your Own API Key** — Enter your key directly in the app UI, or use the server default
-- 🖥 **Real Machine Scan** — Detects Python, Node.js, Docker, Git, databases, and 25+ more tools via subprocess
-- 📊 **Health Score Dashboard** — Overall readiness score with per-tool status cards
-- 🛠 **Auto-Fix Suggestions** — AI recommends exact install commands for your OS
-- 📂 **Multiple Input Modes** — Chat, local folder scan, GitHub repo URL, or pre-built templates
-- 🕓 **Scan History** — Persistent SQLite database of past scans
+| Layer | Technology |
+|-------|-----------|
+| Backend | FastAPI (Python) + Uvicorn |
+| Frontend | React + Vite + TypeScript |
+| AI | Multi-provider (configurable via `.env`) |
+| Database | SQLModel |
 
 ---
 
-## 🗂 Project Structure
+## 📁 Project Structure
 
 ```
-Dev Health Monitor/
-├── backend/                  # FastAPI Python backend
-│   ├── main.py               # API routes
-│   ├── core/
-│   │   ├── ai_advisor.py     # Multi-provider AI integration
-│   │   ├── scanner.py        # Real subprocess-based tool detection
-│   │   ├── auto_fixer.py     # Fix suggestions
-│   │   └── config_parser.py  # Config loader
-│   ├── models.py             # SQLModel DB models
-│   ├── database.py           # DB setup
-│   ├── config.json           # AI provider defaults
-│   └── .env                  # Your secret API key (not committed)
-├── frontend/                 # React + Vite + TypeScript frontend
+Dev-Health-Monitor/
+├── backend/                        # FastAPI Python backend
+│   ├── main.py                     # API routes & app entry point
+│   ├── models.py                   # SQLModel database models
+│   ├── database.py                 # Database setup & connection
+│   ├── config.json                 # AI provider defaults
+│   ├── .env                        # Secret API keys (not committed)
+│   └── core/
+│       ├── ai_advisor.py           # Multi-provider AI integration
+│       ├── scanner.py              # Subprocess-based tool detection
+│       ├── auto_fixer.py           # Fix suggestions engine
+│       └── config_parser.py        # Config file loader
+│
+├── frontend/                       # React + Vite + TypeScript frontend
 │   └── src/
-│       ├── App.tsx
-│       ├── api/client.ts     # Axios/fetch with AI header injection
+│       ├── App.tsx                 # Root app component
+│       ├── api/
+│       │   └── client.ts           # Axios/fetch with AI header injection
 │       ├── components/
-│       │   ├── ApiKeyModal.tsx   # ⚙ AI provider configurator
-│       │   ├── LandingPage.tsx
-│       │   ├── ProjectInput.tsx
-│       │   └── ScanDashboard.tsx
-│       └── types/
-├── requirements.txt
+│       │   ├── ApiKeyModal.tsx     # AI provider configurator
+│       │   ├── LandingPage.tsx     # Landing/home screen
+│       │   ├── ProjectInput.tsx    # Project path input form
+│       │   └── ScanDashboard.tsx   # Scan results & insights UI
+│       └── types/                  # TypeScript type definitions
+│
+├── requirements.txt                # Python dependencies
 └── README.md
 ```
 
 ---
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- **Python 3.9+** — [python.org](https://python.org)
-- **Node.js 18+** — [nodejs.org](https://nodejs.org)
-- **npm** (comes with Node.js)
-
----
+## 🚀 Getting Started
 
 ### 1. Clone the Repository
 
@@ -66,147 +60,182 @@ cd Dev-Health-Monitor
 
 ---
 
-### 2. Backend Setup
+## ⚙️ Backend Setup (FastAPI)
+
+### 2. Navigate to the backend directory
 
 ```bash
 cd backend
 ```
 
-#### Install Python dependencies
+### 3. Create a virtual environment
 
 ```bash
-pip install -r ../requirements.txt
+python -m venv venv
 ```
 
-#### Create your `.env` file
+### 4. Activate the virtual environment
 
-Create a file at `backend/.env` with your default server-side AI API key:
-
-```env
-AI_API_KEY=your_api_key_here
-DATABASE_URL=sqlite:///./dev_env_health.db
+**Windows (PowerShell)**
+```bash
+venv\Scripts\activate
 ```
 
-> **Note:** This key is used as a fallback when no key is entered in the UI.  
-> Supported key formats are auto-detected:
-> - `sk-…` → OpenAI (ChatGPT)
-> - `sk-ant-…` → Anthropic (Claude)
-> - `AIza…` → Google Gemini
-> - `gsk_…` → Groq (LLaMA)
-
-#### (Optional) Configure AI defaults in `config.json`
-
-```json
-{
-  "ai": {
-    "provider": "openai",
-    "base_url": "https://api.openai.com/v1",
-    "model": "gpt-4o-mini",
-    "api_key_env_var": "AI_API_KEY"
-  }
-}
+**Windows (CMD)**
+```bash
+venv\Scripts\activate.bat
 ```
 
-#### Start the backend server
+### 5. Install dependencies
 
 ```bash
-python -m uvicorn main:app --reload --port 8000
+pip install -r requirements.txt
 ```
 
-Backend will be available at: **http://localhost:8000**  
-Interactive API docs: **http://localhost:8000/docs**
+### 6. Run the backend server
+
+> ⚠️ Avoid ports `8000` or `5173` if they are already in use.
+
+```bash
+uvicorn main:app --reload --port 8001
+```
+
+Backend will be available at: `http://127.0.0.1:8001`
 
 ---
 
-### 3. Frontend Setup
+## 💻 Frontend Setup (React + Vite)
 
-Open a **new terminal**:
+### 7. Open a new terminal and navigate to frontend
 
+```bash
+cd Dev-Health-Monitor/frontend
+```
+
+### 8. Install dependencies
+
+```bash
+npm install
+```
+
+### 9. Run the frontend
+
+```bash
+npm run dev
+```
+
+Frontend will be available at: `http://localhost:5176`
+
+> Note: Port may change automatically if already in use.
+
+---
+
+## 🔗 Connecting Frontend to Backend
+
+Ensure your frontend API calls point to the backend URL. Create a `.env` file inside the `frontend/` directory:
+
+```env
+VITE_API_URL=http://127.0.0.1:8001
+```
+
+The `frontend/src/api/client.ts` file reads this variable and injects it into all requests.
+
+---
+
+## ▶️ Quick Start (Both Terminals)
+
+**Terminal 1 — Backend**
+```bash
+cd backend
+venv\Scripts\activate
+uvicorn main:app --reload --port 8001
+```
+
+**Terminal 2 — Frontend**
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Frontend will be available at: **http://localhost:5173**  
-(If port is in use, Vite will try 5174, 5175, etc.)
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:5176 |
+| Backend | http://127.0.0.1:8001 |
 
 ---
 
-## 🔑 Configuring Your AI Key in the App
+## ⚠️ Common Errors & Fixes
 
-You don't need to touch `.env` at all if you prefer to use the in-app key manager:
+### ❌ WinError 10013 — Port access blocked
 
-1. Open the app at **http://localhost:5173**
-2. Click the **⚙ AI Setup** button in the top-right corner of any screen
-3. Select your provider (OpenAI, Anthropic, Gemini, Groq, or Custom)
-4. Paste your API key — the provider and endpoint are auto-detected
-5. Choose your preferred model from the dropdown
-6. Click **Save Configuration**
+Cause: Port blocked by firewall, or already in use.
 
-Your key is stored **only in your browser's localStorage** — it never sent to our servers, only directly to the AI provider per-request via a secure header.
-
-### Supported Providers
-
-| Provider | Key Prefix | Example Model |
-|---|---|---|
-| OpenAI (ChatGPT) | `sk-…` | `gpt-4o`, `gpt-4o-mini` |
-| Anthropic (Claude) | `sk-ant-…` | `claude-3-5-sonnet-20241022` |
-| Google Gemini | `AIza…` | `gemini-1.5-flash`, `gemini-2.0-flash` |
-| Groq (LLaMA) | `gsk_…` | `llama-3.3-70b-versatile` |
-| Custom (OpenAI-compat) | any | your custom model |
-
----
-
-## 🛑 Stopping the Servers
-
-Press `Ctrl + C` in each terminal to stop the backend and frontend.
-
----
-
-## 🧪 API Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/ping` | Health check |
-| `GET` | `/api/health` | Full machine tool scan |
-| `POST` | `/api/scan` | AI-powered stack scan |
-| `POST` | `/api/analyze` | Analyze a project description |
-| `POST` | `/api/analyze-github` | Analyze a GitHub repo URL |
-| `GET` | `/api/history` | Scan history |
-| `GET` | `/api/scan/{id}` | Get scan by ID |
-| `POST` | `/api/fix/{tool}` | Trigger auto-fix |
-| `GET` | `/api/install-command/{tool}` | Get install command for a tool |
-
-All AI endpoints accept optional headers:
-- `X-AI-Api-Key` — overrides the server default key
-- `X-AI-Base-Url` — overrides the AI provider base URL
-- `X-AI-Model` — overrides the model name
-
----
-
-## 🔧 Troubleshooting
-
-### `401 Unauthorized` from AI provider
-- Your API key is invalid or expired.
-- Click **⚙ AI Setup** and re-enter a valid key.
-
-### `uvicorn` not found
 ```bash
-python -m uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8001
 ```
 
-### CORS errors in browser
-- Make sure the backend is running on port `8000`.
-- The frontend must run on one of: `5173`, `5174`, `3000`.
+### ❌ Port already in use
 
-### Module not found (Python)
+Find and kill the conflicting process:
+
 ```bash
-pip install -r requirements.txt
+netstat -ano | findstr :5173
+taskkill /PID <PID> /F
+```
+
+### ❌ Node modules issues
+
+```bash
+rm -rf node_modules
+npm install
 ```
 
 ---
+
+## ⚡ Important — Scanner Limitation
+
+The scanning feature works **only on the local machine where the backend is running**.
+
+**Why?** Browsers restrict access to installed software, system files, and local environment details. The scanner uses Python subprocesses on the server side, so it reads *that machine's* environment — not the visitor's browser.
+
+**For production / real user scanning**, you would need one of:
+- A desktop app (Electron or packaged Python)
+- A local agent installed on the user's machine
+
+---
+
+## 📦 Tech Stack
+
+| Component | Technology |
+|-----------|-----------|
+| Frontend | React, Vite, TypeScript |
+| Backend | FastAPI, Python |
+| AI Layer | Multi-provider (OpenAI / Anthropic / etc.) |
+| Database | SQLModel |
+| Server | Uvicorn |
+| HTTP Client | Axios |
+
+---
+
+## 📈 Future Improvements
+
+- Authentication system
+- Real-time scanning agent
+- Cloud-based user reports
+- Docker deployment
+- CI/CD pipeline integration
+
+---
+
+## 👨‍💻 Author
+
+Developed by **Ranjit**
+
+## ⭐ Contributing
+
+Feel free to fork, improve, and submit pull requests.
 
 ## 📄 License
 
-MIT © Dev Health Monitor
+This project is open-source and available under the [MIT License](LICENSE).
