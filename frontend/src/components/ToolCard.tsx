@@ -1,6 +1,5 @@
 import React, { useRef } from 'react';
 import type { ToolCategory, ToolResult } from '../types';
-import { formatValidUrl } from '../utils/urlFormatter';
 
 const VALID_CATEGORIES: ToolCategory[] = [
   'runtime',
@@ -89,7 +88,6 @@ export const ToolCard: React.FC<ToolCardProps> = ({ tool }) => {
   const category = normalizeCategory(tool.category);
   const cfg = statusConfig(status);
   const cardRef = useRef<HTMLDivElement>(null);
-  const validInstallUrl = formatValidUrl(tool.install_url);
 
   const handleMouseMove = () => {
     // Disabled tilt effect to keep dashboard stable
@@ -151,9 +149,9 @@ export const ToolCard: React.FC<ToolCardProps> = ({ tool }) => {
       ) : null}
 
       {/* Install link */}
-      {(status === 'outdated' || status === 'missing') && validInstallUrl ? (
+      {(status === 'outdated' || status === 'missing') && tool.install_url ? (
         <a
-          href={validInstallUrl}
+          href={tool.install_url}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-1 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors underline-offset-2 hover:underline"
