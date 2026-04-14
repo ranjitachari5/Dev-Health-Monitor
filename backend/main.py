@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -19,14 +19,7 @@ from sqlmodel import Session, select
 load_dotenv()
 
 from database import create_db_and_tables, get_session
-from models import ProjectConfig, ScanLog, StackScanRecord, ToolHealth, User
-from auth import (
-    create_access_token,
-    decode_token,
-    get_current_user_email,
-    hash_password,
-    verify_password,
-)
+from models import ProjectConfig, ScanLog, StackScanRecord, ToolHealth
 from core.ai_advisor import analyze_project, analyze_project_async, get_install_command, resolve_dependencies
 from core.auto_fixer import detect_platform as detect_fix_platform
 from core.auto_fixer import trigger_fix
@@ -48,39 +41,11 @@ cors_origins = list(dict.fromkeys(_cors_base + (list(_cors_cfg) if isinstance(_c
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-# ─── Internal helpers ──────────────────────────────────────────────────────
-
-def _get_optional_user_id(request: Request, session: Session) -> Optional[int]:
-    """Extract user_id from a Bearer token if present, else return None."""
-    auth_header = request.headers.get("authorization", "")
-    if not auth_header.lower().startswith("bearer "):
-        return None
-    token = auth_header[7:].strip()
-    try:
-        email = decode_token(token)
-        user = session.exec(select(User).where(User.email == email)).first()
-        return user.id if user else None
-    except Exception:
-        return None
-
-
-def _require_user(request: Request, session: Session) -> User:
-    """Extract and validate Bearer token, returning the User ORM object. Raises 401 on failure."""
-    auth_header = request.headers.get("authorization", "")
-    if not auth_header.lower().startswith("bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required. Please log in.")
-    token = auth_header[7:].strip()
-    email = decode_token(token)
-    user = session.exec(select(User).where(User.email == email)).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found.")
-    return user
 
 
 # ─── Root / Ping ───────────────────────────────────────────────────────────
@@ -101,9 +66,6 @@ def root() -> Dict[str, Any]:
             "fix": "/api/fix/{tool_name}?fix_type=install|path|update",
             "history": "/api/scan/history",
             "install_command": "/api/install-command/{tool_name}",
-            "register": "/api/auth/register",
-            "login": "/api/auth/login",
-            "me": "/api/auth/me",
         },
     }
 
@@ -111,62 +73,6 @@ def root() -> Dict[str, Any]:
 @app.get("/api/ping")
 def ping() -> Dict[str, str]:
     return {"status": "ok"}
-
-
-# ─── Auth Endpoints ────────────────────────────────────────────────────────
-
-class RegisterRequest(BaseModel):
-    email: str
-    password: str
-
-
-class LoginRequest(BaseModel):
-    email: str
-    password: str
-
-
-class AuthResponse(BaseModel):
-    token: str
-    email: str
-    message: str
-
-
-@app.post("/api/auth/register", response_model=AuthResponse)
-def register(req: RegisterRequest, session: Session = Depends(get_session)) -> AuthResponse:
-    """Create a new user account and return a JWT."""
-    existing = session.exec(select(User).where(User.email == req.email)).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    if len(req.password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
-    user = User(email=req.email.lower().strip(), hashed_password=hash_password(req.password))
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    token = create_access_token(user.email)
-    return AuthResponse(token=token, email=user.email, message="Registration successful")
-
-
-@app.post("/api/auth/login", response_model=AuthResponse)
-def login(req: LoginRequest, session: Session = Depends(get_session)) -> AuthResponse:
-    """Verify credentials and return a JWT."""
-    user = session.exec(select(User).where(User.email == req.email.lower().strip())).first()
-    if not user or not verify_password(req.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-    token = create_access_token(user.email)
-    return AuthResponse(token=token, email=user.email, message="Login successful")
-
-
-@app.get("/api/auth/me")
-def get_me(
-    email: str = Depends(get_current_user_email),
-    session: Session = Depends(get_session),
-) -> Dict[str, Any]:
-    """Return the currently authenticated user's profile."""
-    user = session.exec(select(User).where(User.email == email)).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return {"id": user.id, "email": user.email, "created_at": user.created_at.isoformat()}
 
 
 # ─── Scan Models ───────────────────────────────────────────────────────────
@@ -185,30 +91,46 @@ class GithubRequest(BaseModel):
 @app.post("/api/scan")
 async def api_scan(
     req: ScanRequest,
-    request: Request,
     session: Session = Depends(get_session),
     x_ai_api_key: Optional[str] = Header(None),
     x_ai_base_url: Optional[str] = Header(None),
     x_ai_model: Optional[str] = Header(None),
 ) -> Dict[str, Any]:
     try:
-        # Resolve user (optional)
-        user_id = _get_optional_user_id(request, session)
+        stack_name = "Unknown"
+        normalized_tools: List[Dict[str, Any]] = []
+        dependency_error: Optional[str] = None
 
-        resolved = await resolve_dependencies(
-            req.user_input, req.detected_tools,
-            dynamic_key=x_ai_api_key,
-            dynamic_base_url=x_ai_base_url,
-            dynamic_model=x_ai_model,
-        )
-        stack_name = str(resolved.get("stack_name") or "Unknown")
-        raw_tools = resolved.get("required_tools") or []
-        if not isinstance(raw_tools, list):
-            raw_tools = []
-
-        normalized_tools: List[Dict[str, Any]] = [
-            item for item in raw_tools if isinstance(item, dict)
-        ]
+        try:
+            resolved = await resolve_dependencies(
+                req.user_input, req.detected_tools,
+                dynamic_key=x_ai_api_key,
+                dynamic_base_url=x_ai_base_url,
+                dynamic_model=x_ai_model,
+            )
+            stack_name = str(resolved.get("stack_name") or "Unknown")
+            raw_tools = resolved.get("required_tools") or []
+            if not isinstance(raw_tools, list):
+                raw_tools = []
+            normalized_tools = [item for item in raw_tools if isinstance(item, dict)]
+        except Exception as e:
+            # Keep the scan usable even if provider defaults are unavailable.
+            dependency_error = str(e)
+            fallback_names = [str(t).strip().lower() for t in (req.detected_tools or []) if str(t).strip()]
+            normalized_tools = [
+                {
+                    "name": name,
+                    "display_name": name,
+                    "category": "devtool",
+                    "check_command": f"{name} --version",
+                    "install_url": "https://",
+                    "why_needed": "Detected from project input (fallback mode).",
+                    "min_version": None,
+                }
+                for name in fallback_names
+            ]
+            if fallback_names:
+                stack_name = "Fallback scan"
 
         results = await scan_environment(normalized_tools)
 
@@ -224,12 +146,26 @@ async def api_scan(
 
         user_input_summary = (req.user_input or "")[:200]
 
-        ai = await analyze_project_async(
-            user_input_summary, results,
-            dynamic_key=x_ai_api_key,
-            dynamic_base_url=x_ai_base_url,
-            dynamic_model=x_ai_model,
-        )
+        try:
+            ai = await analyze_project_async(
+                user_input_summary, results,
+                dynamic_key=x_ai_api_key,
+                dynamic_base_url=x_ai_base_url,
+                dynamic_model=x_ai_model,
+            )
+        except Exception as e:
+            ai = {
+                "required_tools": [],
+                "missing_tools": [],
+                "outdated_tools": [],
+                "health_summary": "AI analysis unavailable. Showing direct scan results only.",
+                "critical_issues": [],
+                "recommendations": [],
+                "version_requirements": {},
+                "error": str(e),
+            }
+        if dependency_error and not ai.get("error"):
+            ai["error"] = f"Dependency resolution fallback used: {dependency_error}"
         ai_analysis = AIAnalysis(
             required_tools=ai.get("required_tools", []),
             missing_tools=ai.get("missing_tools", []),
@@ -256,7 +192,6 @@ async def api_scan(
             user_input_summary=user_input_summary,
             results_json=json.dumps(results),
             summary_json=json.dumps(summary),
-            user_id=user_id,  # links scan to authenticated user
         )
         session.add(record)
         session.commit()
@@ -294,21 +229,15 @@ async def api_analyze_github(req: GithubRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
-# ─── History Endpoint (auth required — user sees only their scans) ─────────
+# ─── History Endpoint ────────────────────────────────────────────────────────
 
 @app.get("/api/history")
 def api_dynamic_history(
-    request: Request,
     session: Session = Depends(get_session),
 ) -> List[Dict[str, Any]]:
-    """Return recent scans for the authenticated user only."""
-    user = _require_user(request, session)
-
+    """Return recent scans."""
     rows = session.exec(
-        select(StackScanRecord)
-        .where(StackScanRecord.user_id == user.id)
-        .order_by(StackScanRecord.timestamp.desc())
-        .limit(20)
+        select(StackScanRecord).order_by(StackScanRecord.timestamp.desc()).limit(20)
     ).all()
 
     out: List[Dict[str, Any]] = []
@@ -333,17 +262,11 @@ def api_dynamic_history(
 
 
 @app.get("/api/scan/{scan_id}")
-def api_get_scan(scan_id: int, request: Request, session: Session = Depends(get_session)) -> Dict[str, Any]:
-    """Return a specific scan — only accessible to the owning user or if scan has no user attached."""
+def api_get_scan(scan_id: int, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    """Return a specific scan by id."""
     record = session.get(StackScanRecord, scan_id)
     if not record:
         raise HTTPException(status_code=404, detail="Scan not found")
-
-    # Enforce ownership if the scan has a user_id
-    if record.user_id is not None:
-        user = _require_user(request, session)
-        if record.user_id != user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
 
     try:
         results = json.loads(record.results_json) if record.results_json else []
@@ -459,6 +382,18 @@ class AIAnalysis(BaseModel):
     error: Optional[str] = None
 
 
+def _to_str_list(value: Any) -> List[str]:
+    if isinstance(value, list):
+        return [str(v) for v in value]
+    return []
+
+
+def _to_str_map(value: Any) -> Dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    return {str(k): str(v) for k, v in value.items()}
+
+
 class AnalyzeResponse(BaseModel):
     scan_results: List[ToolInfo]
     ai_analysis: AIAnalysis
@@ -539,12 +474,11 @@ def post_analyze(
         dynamic_model=x_ai_model,
     )
 
-    version_requirements = ai.get("version_requirements") or {}
-    if isinstance(version_requirements, dict):
-        for t in scan_results:
-            name = t.get("tool_name")
-            if name in version_requirements:
-                t["required_version"] = str(version_requirements.get(name))
+    version_requirements = _to_str_map(ai.get("version_requirements"))
+    for t in scan_results:
+        name = t.get("tool_name")
+        if name in version_requirements:
+            t["required_version"] = str(version_requirements.get(name))
 
     ai_summary = ai.get("health_summary")
     if isinstance(ai_summary, str) and len(ai_summary) > 2000:
@@ -564,13 +498,13 @@ def post_analyze(
     return AnalyzeResponse(
         scan_results=[ToolInfo(**t) for t in scan_results],
         ai_analysis=AIAnalysis(
-            required_tools=ai.get("required_tools", []),
-            missing_tools=ai.get("missing_tools", []),
-            outdated_tools=ai.get("outdated_tools", []),
-            health_summary=ai.get("health_summary", ""),
-            critical_issues=ai.get("critical_issues", []),
-            recommendations=ai.get("recommendations", []),
-            version_requirements=ai.get("version_requirements", {}),
+            required_tools=_to_str_list(ai.get("required_tools")),
+            missing_tools=_to_str_list(ai.get("missing_tools")),
+            outdated_tools=_to_str_list(ai.get("outdated_tools")),
+            health_summary=str(ai.get("health_summary") or ""),
+            critical_issues=_to_str_list(ai.get("critical_issues")),
+            recommendations=_to_str_list(ai.get("recommendations")),
+            version_requirements=_to_str_map(ai.get("version_requirements")),
             error=ai.get("error"),
         ),
         overall_score=scan.overall_score,
@@ -623,13 +557,15 @@ def fix_stream(
             "-ExecutionPolicy", "Bypass",
             "-File", str(script),
             "-ToolName", tool_name,
+            "-FixType", fix_type,
         ]
     else:
         script = scripts_dir / "install_deps.sh"
-        cmd = ["bash", str(script), tool_name]
+        cmd = ["bash", str(script), tool_name, fix_type]
 
     def _stream() -> Iterator[str]:
-        yield f"data: Installing {tool_name}...\n\n"
+        action = "Updating" if fix_type == "update" else "Installing"
+        yield f"data: {action} {tool_name}...\n\n"
         yield f"data: Running: {' '.join(cmd)}\n\n"
         yield "data: \n\n"
         try:

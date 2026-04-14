@@ -4,7 +4,7 @@ import { AIAnalysis } from '../types/index';
 
 interface AIInsightsProps {
   analysis: AIAnalysis;
-  onFixTool: (toolName: string, fixType: 'install' | 'path') => Promise<void>;
+  onFixTool: (toolName: string, fixType: 'install' | 'update') => Promise<void>;
 }
 
 export const AIInsights: React.FC<AIInsightsProps> = ({ analysis, onFixTool }) => {
@@ -20,7 +20,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ analysis, onFixTool }) =
     setExpandedSections(newExpanded);
   };
 
-  const handleFix = async (toolName: string, fixType: 'install' | 'path') => {
+  const handleFix = async (toolName: string, fixType: 'install' | 'update') => {
     setFixingTools(new Set([...fixingTools, `${toolName}-${fixType}`]));
     try {
       await onFixTool(toolName, fixType);
@@ -94,7 +94,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ analysis, onFixTool }) =
                 >
                   <span className="text-red-200/80 font-medium text-sm">{tool}</span>
                   <button
-                    onClick={() => handleFix(tool, 'install')}
+                    onClick={() => handleFix(tool, 'update')}
                     disabled={fixingTools.has(`${tool}-install`)}
                     className="px-3 py-1 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
                     style={{ background: 'rgba(239,68,68,0.25)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5' }}

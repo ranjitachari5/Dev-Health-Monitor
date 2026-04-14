@@ -1,6 +1,8 @@
 param(
   [Parameter(Mandatory=$true)]
-  [string]$ToolName
+  [string]$ToolName,
+  [ValidateSet("install","update")]
+  [string]$FixType = "install"
 )
 
 $ToolName = $ToolName.ToLower().Trim()
@@ -75,15 +77,17 @@ $pipMap = @{
 }
 
 Write-Host "=== Dev Health Monitor - Installing: $ToolName ==="
+Write-Host "Mode: $FixType"
 Write-Host ""
 
 # Try npm first for node tools
 if ($npmMap.ContainsKey($ToolName)) {
   $pkg = $npmMap[$ToolName]
-  Write-Host "Installing via npm: $pkg"
-  Write-Host "Running: npm install -g $pkg"
+  $op = if ($FixType -eq "update") { "update" } else { "install" }
+  Write-Host "$($op.Substring(0,1).ToUpper() + $op.Substring(1)) via npm: $pkg"
+  Write-Host "Running: npm $op -g $pkg"
   Write-Host ""
-  & npm install -g $pkg
+  & npm $op -g $pkg
   if ($LASTEXITCODE -eq 0) {
     Write-Host ""
     Write-Host "SUCCESS: $ToolName installed via npm."
@@ -97,10 +101,10 @@ if ($npmMap.ContainsKey($ToolName)) {
 # Try pip for python packages
 if ($pipMap.ContainsKey($ToolName)) {
   $pkg = $pipMap[$ToolName]
-  Write-Host "Installing via pip: $pkg"
-  Write-Host "Running: pip install $pkg"
+  Write-Host "Upgrading via pip: $pkg"
+  Write-Host "Running: pip install --upgrade $pkg"
   Write-Host ""
-  & pip install $pkg
+  & pip install --upgrade $pkg
   if ($LASTEXITCODE -eq 0) {
     Write-Host ""
     Write-Host "SUCCESS: $ToolName installed via pip."
@@ -114,10 +118,10 @@ if ($pipMap.ContainsKey($ToolName)) {
 # Try winget
 if ($wingetMap.ContainsKey($ToolName)) {
   $pkg = $wingetMap[$ToolName]
-  Write-Host "Installing via winget: $pkg"
-  Write-Host "Running: winget install --id $pkg --silent --accept-source-agreements --accept-package-agreements"
+  Write-Host "Installing/Upgrading via winget: $pkg"
+  Write-Host "Running: winget install --id $pkg --silent --accept-source-agreements --accept-package-agreements --force"
   Write-Host ""
-  & winget install --id $pkg --silent --accept-source-agreements --accept-package-agreements
+  & winget install --id $pkg --silent --accept-source-agreements --accept-package-agreements --force
   if ($LASTEXITCODE -eq 0) {
     Write-Host ""
     Write-Host "SUCCESS: $ToolName installed. You may need to restart your terminal."

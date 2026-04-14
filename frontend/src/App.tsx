@@ -4,6 +4,7 @@ import { ProjectInput } from './components/ProjectInput';
 import { ScanDashboard } from './components/ScanDashboard';
 import { ScanHistory } from './components/ScanHistory';
 import { Squares } from './components/Squares';
+import { ApiKeyModal, loadStoredConfig, type ApiKeyConfig } from './components/ApiKeyModal';
 import { runHealthScan, runScan } from './api/client';
 import type { AppView, HealthScanResponse, ScanResponse, ToolResult, ToolStatus } from './types';
 function mapHealthToScanResponse(h: HealthScanResponse): ScanResponse {
@@ -104,6 +105,8 @@ function App() {
   const [scanData, setScanData] = useState<ScanResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfig>(() => loadStoredConfig());
 
   // Cursor refs
   const dotRef = useRef<HTMLDivElement>(null);
@@ -204,6 +207,7 @@ function App() {
               onQuickScan={handleLandingQuickScan}
               onDescribeProject={() => setView('input')}
               onViewHistory={() => setView('history')}
+              onSetApiKey={() => setIsApiKeyModalOpen(true)}
             />
           )}
 
@@ -252,6 +256,12 @@ function App() {
           )}
         </div>
       </div>
+      <ApiKeyModal
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+        onSave={(cfg) => setApiKeyConfig(cfg)}
+        currentConfig={apiKeyConfig}
+      />
     </div>
   );
 }

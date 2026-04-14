@@ -2,8 +2,15 @@
 set -euo pipefail
 
 TOOL_NAME="${1:-}"
+FIX_TYPE="${2:-install}"
+
 if [[ -z "${TOOL_NAME}" ]]; then
-  echo "Usage: install_deps.sh <tool_name>"
+  echo "Usage: install_deps.sh <tool_name> [install|update]"
+  exit 2
+fi
+
+if [[ "${FIX_TYPE}" != "install" && "${FIX_TYPE}" != "update" ]]; then
+  echo "Invalid fix type: ${FIX_TYPE}. Use install or update."
   exit 2
 fi
 
@@ -13,6 +20,7 @@ is_macos() {
 
 echo "Dev Environment Health Monitor - Dependency Installer (Mac/Linux)"
 echo "Tool: ${TOOL_NAME}"
+echo "Mode: ${FIX_TYPE}"
 echo ""
 
 declare -A BREW_MAP
@@ -51,47 +59,46 @@ APT_MAP=(
   ["terraform"]="terraform"
 )
 
-simulate_progress() {
-  local label="$1"
-  for p in 10 20 30 40 50 60 70 80 90 100; do
-    echo "${label}... ${p}%"
-    sleep 0.2
-  done
-}
-
 if is_macos; then
   pkg="${BREW_MAP[${TOOL_NAME}]:-}"
   if [[ -z "${pkg}" ]]; then
     echo "No brew mapping for '${TOOL_NAME}'."
-    echo "Simulating install anyway..."
-    simulate_progress "Installing"
-    echo "Done (simulated)."
-    exit 0
+    exit 1
   fi
 
   echo "Detected macOS: using Homebrew"
-  echo "Simulating: brew install ${pkg}"
-  echo ""
-  simulate_progress "Downloading"
-  simulate_progress "Installing"
-  echo ""
-  echo "Install completed for ${TOOL_NAME} (simulated)."
+  if [[ "${FIX_TYPE}" == "update" ]]; then
+    echo "Running: brew update && brew upgrade ${pkg}"
+    brew update
+    brew upgrade ${pkg}
+  else
+    echo "Running: brew install ${pkg}"
+    brew install ${pkg}
+  fi
+  echo "Install/update completed for ${TOOL_NAME}."
   exit 0
 fi
 
 pkg="${APT_MAP[${TOOL_NAME}]:-}"
 if [[ -z "${pkg}" ]]; then
   echo "No apt mapping for '${TOOL_NAME}'."
-  echo "Simulating install anyway..."
-  simulate_progress "Installing"
-  echo "Done (simulated)."
-  exit 0
+  exit 1
 fi
 
 echo "Detected Linux: using apt-get"
-echo "Simulating: sudo apt-get update && sudo apt-get install -y ${pkg}"
-echo ""
-simulate_progress "Downloading"
-simulate_progress "Installing"
-echo ""
-echo "Install completed for ${TOOL_NAME} (simulated)."
+if command -v sudo >/dev/null 2>&1; then
+  SUDO="sudo"
+else
+  SUDO=""
+fi
+
+if [[ "${FIX_TYPE}" == "update" ]]; then
+  echo "Running: ${SUDO} apt-get update && ${SUDO} apt-get install --only-upgrade -y ${pkg}"
+  ${SUDO} apt-get update
+  ${SUDO} apt-get install --only-upgrade -y ${pkg}
+else
+  echo "Running: ${SUDO} apt-get update && ${SUDO} apt-get install -y ${pkg}"
+  ${SUDO} apt-get update
+  ${SUDO} apt-get install -y ${pkg}
+fi
+echo "Install/update completed for ${TOOL_NAME}."

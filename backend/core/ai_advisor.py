@@ -39,7 +39,7 @@ def detect_provider_from_key(api_key: str) -> Dict[str, str]:
         return {
             "provider": "openrouter",
             "base_url": "https://openrouter.ai/api/v1",
-            "model": "google/gemma-3-27b-it:free",
+            "model": "openai/gpt-4o-mini",
         }
 
     # Google Gemini: AIza...

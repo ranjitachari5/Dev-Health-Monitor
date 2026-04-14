@@ -5,9 +5,10 @@ import { AIInsights } from './AIInsights';
 
 interface SystemHealthReportProps {
   scanData: ScanResponse;
+  onFixTool: (toolName: string, fixType: 'install' | 'update') => Promise<void>;
 }
 
-export const SystemHealthReport: React.FC<SystemHealthReportProps> = ({ scanData }) => {
+export const SystemHealthReport: React.FC<SystemHealthReportProps> = ({ scanData, onFixTool }) => {
   const score = scanData.overall_score ?? 100;
   const analysis = scanData.ai_analysis;
 
@@ -54,9 +55,7 @@ export const SystemHealthReport: React.FC<SystemHealthReportProps> = ({ scanData
             >
               <AIInsights
                 analysis={analysis}
-                onFixTool={async (toolName) => {
-                  window.open(`https://google.com/search?q=install+${toolName}`, '_blank');
-                }}
+                onFixTool={onFixTool}
               />
             </div>
           ) : (

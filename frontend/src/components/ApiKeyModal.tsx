@@ -17,6 +17,12 @@ interface ApiKeyModalProps {
 
 // Provider presets — resolved from key prefix automatically
 const PROVIDER_PRESETS: Record<string, { provider: string; baseUrl: string; model: string; label: string }> = {
+  'sk-or-': {
+    provider: 'openrouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    model: 'openai/gpt-4o-mini',
+    label: 'OpenRouter',
+  },
   'sk-ant-': {
     provider: 'anthropic',
     baseUrl: 'https://api.anthropic.com/v1',
@@ -46,7 +52,7 @@ const PROVIDER_PRESETS: Record<string, { provider: string; baseUrl: string; mode
 function resolvePreset(key: string) {
   const k = (key || '').trim();
   // Check most specific prefixes first
-  for (const prefix of ['sk-ant-', 'AIza', 'gsk_', 'sk-']) {
+  for (const prefix of ['sk-or-', 'sk-ant-', 'AIza', 'gsk_', 'sk-']) {
     if (k.startsWith(prefix)) return PROVIDER_PRESETS[prefix];
   }
   return null;
@@ -199,6 +205,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
           {/* Supported providers hint */}
           <div className="mt-3 flex flex-wrap gap-1.5">
             {[
+              { label: 'OpenRouter', prefix: 'sk-or-', color: '#8b5cf6' },
               { label: 'ChatGPT', prefix: 'sk-', color: '#10a37f' },
               { label: 'Claude', prefix: 'sk-ant-', color: '#d4a56a' },
               { label: 'Gemini', prefix: 'AIza…', color: '#4285f4' },

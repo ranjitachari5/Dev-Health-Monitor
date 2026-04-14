@@ -3,6 +3,7 @@ import type { ScanResponse } from '../types';
 import { ScanProgress } from './ScanProgress';
 import { ToolCard } from './ToolCard';
 import { DownloadModal } from './DownloadModal';
+import { InstallProgressModal } from './InstallProgressModal';
 import { generateHealthReport } from '../utils/reportGenerator';
 import { SystemHealthReport } from './SystemHealthReport';
 import { Download, ArrowLeft, RefreshCw } from 'lucide-react';
@@ -21,7 +22,12 @@ export const ScanDashboard: React.FC<ScanDashboardProps> = ({
   onReset,
 }) => {
   const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [activeFix, setActiveFix] = useState<{ toolName: string; fixType: 'install' | 'update' } | null>(null);
   const [cardsMounted, setCardsMounted] = useState(false);
+
+  const triggerFix = (toolName: string, fixType: 'install' | 'update') => {
+    setActiveFix({ toolName, fixType });
+  };
 
   useEffect(() => {
     if (scanData && !isLoading) {
@@ -184,14 +190,19 @@ export const ScanDashboard: React.FC<ScanDashboardProps> = ({
               }`}
               style={{ transitionDelay: `${index * 50}ms` } as React.CSSProperties}
             >
-              <ToolCard tool={t} />
+              <ToolCard tool={t} onFixTool={triggerFix} />
             </div>
           ))}
         </div>
 
         {/* AI Health Report */}
         <div className="mt-8 animate-fade-in-up" style={{ animationDelay: '400ms' }}>
-          <SystemHealthReport scanData={scanData} />
+          <SystemHealthReport
+            scanData={scanData}
+            onFixTool={async (toolName, fixType) => {
+              triggerFix(toolName, fixType);
+            }}
+          />
         </div>
       </div>
 
@@ -219,6 +230,16 @@ export const ScanDashboard: React.FC<ScanDashboardProps> = ({
         isOpen={showDownloadModal}
         onClose={() => setShowDownloadModal(false)}
         tools={scanData.results.filter((t) => t.status !== 'ok')}
+        onFixTool={triggerFix}
+      />
+      <InstallProgressModal
+        isOpen={!!activeFix}
+        toolName={activeFix?.toolName ?? ''}
+        fixType={activeFix?.fixType ?? 'install'}
+        onClose={() => setActiveFix(null)}
+        onComplete={() => {
+          // Keep it simple: user can re-scan to validate post-install state.
+        }}
       />
     </div>
   );

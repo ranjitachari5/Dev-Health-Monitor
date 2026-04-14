@@ -4,10 +4,11 @@ interface LandingPageProps {
   onQuickScan: () => void | Promise<void>;
   onDescribeProject: () => void;
   onViewHistory: () => void;
+  onSetApiKey: () => void;
 }
 
 const FEATURES = [
-  { icon: <Zap size={18} />, label: 'AI-Powered Analysis', desc: 'Grok AI inspects your stack' },
+  { icon: <Zap size={18} />, label: 'AI-Powered Analysis', desc: 'OpenRouter-powered stack analysis' },
   { icon: <Cpu size={18} />, label: 'Deep System Scan', desc: 'Every tool, every version' },
   { icon: <Shield size={18} />, label: 'Health Score', desc: 'Instant readiness report' },
   { icon: <Activity size={18} />, label: 'Live Progress', desc: 'Real-time terminal output' },
@@ -17,6 +18,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onQuickScan,
   onDescribeProject,
   onViewHistory,
+  onSetApiKey,
 }) => {
   const [platform, setPlatform] = useState<string>('');
   const [isScanning, setIsScanning] = useState(false);
@@ -83,14 +85,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
           <span className="font-bold text-white tracking-tight">DevHealth</span>
         </div>
-        <button
-          type="button"
-          onClick={onViewHistory}
-          className="nav-link text-sm font-medium px-4 py-2"
-          data-hover
-        >
-          Scan History
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onSetApiKey}
+            className="nav-link text-sm font-medium px-4 py-2"
+            data-hover
+          >
+            Set API Key
+          </button>
+          <button
+            type="button"
+            onClick={onViewHistory}
+            className="nav-link text-sm font-medium px-4 py-2"
+            data-hover
+          >
+            Scan History
+          </button>
+        </div>
       </div>
 
       {/* Main content */}
@@ -103,7 +115,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             style={{ animationDelay: '0ms', border: '1px solid rgba(59,130,246,0.25)' }}
           >
             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" style={{ boxShadow: '0 0 8px #34d399' }} />
-            <span className="text-sm text-blue-200 font-medium">Grok AI · Powered by xAI</span>
+            <span className="text-sm text-blue-200 font-medium">OpenRouter AI · Multi-model analysis</span>
           </div>
 
           {/* Headline */}

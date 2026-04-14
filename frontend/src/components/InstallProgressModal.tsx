@@ -4,6 +4,7 @@ import { X, Terminal } from 'lucide-react';
 interface InstallProgressModalProps {
   isOpen: boolean;
   toolName: string;
+  fixType: 'install' | 'update';
   onClose: () => void;
   onComplete: (success: boolean) => void;
 }
@@ -11,6 +12,7 @@ interface InstallProgressModalProps {
 export const InstallProgressModal: React.FC<InstallProgressModalProps> = ({
   isOpen,
   toolName,
+  fixType,
   onClose,
   onComplete,
 }) => {
@@ -29,12 +31,12 @@ export const InstallProgressModal: React.FC<InstallProgressModalProps> = ({
   useEffect(() => {
     if (!isOpen || !toolName) return;
 
-    setLogs([`$ Starting installation for ${toolName}...`]);
+    setLogs([`$ Starting ${fixType} for ${toolName}...`]);
     setStatus('running');
 
     // Make sure we connect to the correct backend host
     const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
-    const es = new EventSource(`${baseUrl}/api/fix-stream/${encodeURIComponent(toolName)}?fix_type=install`);
+    const es = new EventSource(`${baseUrl}/api/fix-stream/${encodeURIComponent(toolName)}?fix_type=${fixType}`);
     eventSourceRef.current = es;
 
     es.onmessage = (event) => {
@@ -65,7 +67,7 @@ export const InstallProgressModal: React.FC<InstallProgressModalProps> = ({
     return () => {
       es.close();
     };
-  }, [isOpen, toolName, onComplete]);
+  }, [isOpen, toolName, fixType, onComplete]);
 
   if (!isOpen) return null;
 
@@ -98,7 +100,7 @@ export const InstallProgressModal: React.FC<InstallProgressModalProps> = ({
               <Terminal size={18} />
             </div>
             <div>
-              <h2 className="text-white font-bold text-base">Installing {toolName}</h2>
+              <h2 className="text-white font-bold text-base">{fixType === 'update' ? 'Updating' : 'Installing'} {toolName}</h2>
               <p className="text-blue-300/50 text-xs">
                 {status === 'running' ? 'Running installation scripts...' :
                  status === 'success' ? 'Installation complete.' : 'Installation failed.'}

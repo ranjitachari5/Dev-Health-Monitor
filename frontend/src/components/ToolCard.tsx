@@ -16,6 +16,7 @@ function normalizeCategory(c: string): ToolCategory {
 
 interface ToolCardProps {
   tool: ToolResult;
+  onFixTool?: (toolName: string, fixType: 'install' | 'update') => void;
 }
 
 function categoryBadgeStyle(cat: ToolCategory): React.CSSProperties {
@@ -83,7 +84,7 @@ function statusConfig(status: ToolResult['status']) {
   };
 }
 
-export const ToolCard: React.FC<ToolCardProps> = ({ tool }) => {
+export const ToolCard: React.FC<ToolCardProps> = ({ tool, onFixTool }) => {
   const { status } = tool;
   const category = normalizeCategory(tool.category);
   const cfg = statusConfig(status);
@@ -148,17 +149,15 @@ export const ToolCard: React.FC<ToolCardProps> = ({ tool }) => {
         <p className="text-xs text-blue-200/40 italic leading-snug">{tool.why_needed}</p>
       ) : null}
 
-      {/* Install link */}
-      {(status === 'outdated' || status === 'missing') && tool.install_url ? (
-        <a
-          href={tool.install_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-1 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors underline-offset-2 hover:underline"
+      {(status === 'outdated' || status === 'missing') && onFixTool ? (
+        <button
+          type="button"
+          onClick={() => onFixTool(tool.name, status === 'missing' ? 'install' : 'update')}
+          className="mt-1 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors underline-offset-2 hover:underline text-left"
           data-hover
         >
-          {status === 'missing' ? 'Install →' : 'Update →'}
-        </a>
+          {status === 'missing' ? 'Install latest →' : 'Update latest →'}
+        </button>
       ) : null}
     </div>
   );

@@ -52,11 +52,10 @@ def trigger_fix(tool_name: str, fix_type: str, platform: str) -> Dict:
             "command_executed": "",
         }
 
-    # For now, "update" maps to "install" script flow.
-    effective_fix = "install" if fix_type in {"install", "update"} else "path"
+    effective_fix = fix_type
 
     if plat == "windows":
-        script = scripts_dir / ("install_deps.ps1" if effective_fix == "install" else "fix_path_vars.ps1")
+        script = scripts_dir / ("install_deps.ps1" if effective_fix in {"install", "update"} else "fix_path_vars.ps1")
         cmd = [
             "powershell",
             "-ExecutionPolicy",
@@ -66,6 +65,8 @@ def trigger_fix(tool_name: str, fix_type: str, platform: str) -> Dict:
             "-ToolName",
             tool_name,
         ]
+        if effective_fix in {"install", "update"}:
+            cmd.extend(["-FixType", effective_fix])
         rc, out, err = _run(cmd, cwd=scripts_dir)
         return {
             "success": rc == 0,
@@ -75,8 +76,10 @@ def trigger_fix(tool_name: str, fix_type: str, platform: str) -> Dict:
         }
 
     if plat in {"mac", "linux"}:
-        script = scripts_dir / ("install_deps.sh" if effective_fix == "install" else "fix_path_vars.sh")
+        script = scripts_dir / ("install_deps.sh" if effective_fix in {"install", "update"} else "fix_path_vars.sh")
         cmd = ["bash", str(script), tool_name]
+        if effective_fix in {"install", "update"}:
+            cmd.append(effective_fix)
         rc, out, err = _run(cmd, cwd=scripts_dir)
         return {
             "success": rc == 0,

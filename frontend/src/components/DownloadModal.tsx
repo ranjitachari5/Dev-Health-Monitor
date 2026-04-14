@@ -5,6 +5,7 @@ interface DownloadModalProps {
   isOpen: boolean;
   onClose: () => void;
   tools: ToolResult[];
+  onFixTool: (toolName: string, fixType: 'install' | 'update') => void;
 }
 
 const CATEGORY_ORDER: ToolCategory[] = [
@@ -37,6 +38,7 @@ export const DownloadModal: React.FC<DownloadModalProps> = ({
   isOpen,
   onClose,
   tools,
+  onFixTool,
 }) => {
   const grouped = useMemo(() => {
     const need = tools.filter((t) => t.status === 'outdated' || t.status === 'missing');
@@ -75,10 +77,10 @@ export const DownloadModal: React.FC<DownloadModalProps> = ({
       >
         <h2 className="font-semibold text-white text-lg">Required installs & updates</h2>
         <p className="text-gray-400 text-sm mt-1">
-          Open each link to install, then re-scan to verify.
+          Run direct CLI installs/updates, then re-scan to verify.
         </p>
         <div className="mt-4 rounded-lg border border-yellow-700/50 bg-yellow-900/20 px-3 py-2 text-yellow-200 text-sm">
-          This tool does not auto-install software. Please install manually.
+          These actions run system package manager commands and may require admin permissions.
         </div>
 
         <div className="mt-6 space-y-6">
@@ -108,14 +110,13 @@ export const DownloadModal: React.FC<DownloadModalProps> = ({
                           {t.status === 'missing' ? 'Missing' : 'Outdated'}
                         </span>
                       </div>
-                      <a
-                        href={t.install_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => onFixTool(t.name, t.status === 'missing' ? 'install' : 'update')}
                         className="shrink-0 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3 py-1.5"
                       >
-                        Download
-                      </a>
+                        {t.status === 'missing' ? 'Install Latest' : 'Update Latest'}
+                      </button>
                     </li>
                   ))}
                 </ul>
