@@ -118,7 +118,7 @@ export interface ProjectTemplate {
   description: string;
 }
 
-export type AppView = 'landing' | 'input' | 'scanning' | 'results' | 'history';
+export type AppView = 'landing' | 'input' | 'scanning' | 'results' | 'history' | 'auth';
 
 export interface AppState {
   currentScreen: 'landing' | 'input' | 'dashboard';

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { AuthPage } from './components/AuthPage';
 import { LandingPage } from './components/LandingPage';
 import { ProjectInput } from './components/ProjectInput';
 import { ScanDashboard } from './components/ScanDashboard';
@@ -101,7 +102,10 @@ function useCursor(
 
 /* ─── App component ─────────────────────────────────────────────────── */
 function App() {
-  const [view, setView] = useState<AppView>('landing');
+  const [view, setView] = useState<AppView>(() => {
+    const savedUser = localStorage.getItem('devhealth_user');
+    return savedUser ? 'landing' : 'auth';
+  });
   const [scanData, setScanData] = useState<ScanResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -227,8 +231,18 @@ function App() {
               onDescribeProject={() => setView('input')}
               onViewHistory={() => setView('history')}
               onSetApiKey={() => setIsApiKeyModalOpen(true)}
+              onSignIn={() => setView('auth')}
               aiKeyStatus={aiKeyStatus}
             />
+          )}
+
+          {view === 'auth' && (
+            <div className="absolute inset-0 z-50">
+              <AuthPage
+                onLogin={() => setView('landing')}
+                onBack={() => setView('landing')}
+              />
+            </div>
           )}
 
           {view === 'input' && (
