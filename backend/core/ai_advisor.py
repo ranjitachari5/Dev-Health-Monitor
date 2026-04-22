@@ -208,7 +208,7 @@ async def resolve_dependencies(
     if client is None:
         raise HTTPException(
             status_code=400,
-            detail=f"No AI API key configured. Set {config['api_key_env_var']} in backend/.env or enter your key in the app settings.",
+            detail="No AI API key provided. Please enter your API key in the app settings (click 'Set API Key').",
         )
 
     user_message = (
@@ -277,7 +277,7 @@ def analyze_project(
     client = _ai_sync_client(dynamic_key, dynamic_base_url, dynamic_model)
     if client is None:
         return {
-            "error": f"No AI API key configured ({config['api_key_env_var']}).",
+            "error": "No AI API key provided. Click 'Set API Key' in the app to enter your key.",
             "required_tools": [],
             "version_requirements": {},
             "missing_tools": [],
@@ -367,7 +367,7 @@ async def analyze_project_async(
     client = _ai_async_client(dynamic_key, dynamic_base_url, dynamic_model)
     if client is None:
         return {
-            "error": f"No AI API key configured ({config['api_key_env_var']}).",
+            "error": "No AI API key provided. Click 'Set API Key' in the app to enter your key.",
             "required_tools": [],
             "version_requirements": {},
             "missing_tools": [],
@@ -460,8 +460,8 @@ def get_install_command(
             "tool": tool_name,
             "platform": platform,
             "command": "",
-            "notes": f"No API key configured. Set {config['api_key_env_var']} in backend/.env or enter your key in app settings.",
-            "error": f"Missing API key",
+            "notes": "No API key provided. Click 'Set API Key' in the app to enter your key.",
+            "error": "Missing API key",
         }
 
     prompt = (
@@ -528,7 +528,7 @@ def get_ai_key_status(
 ) -> Dict[str, Any]:
     """Validate AI credentials without exposing secret values."""
     config = _get_ai_config(dynamic_key, dynamic_base_url, dynamic_model)
-    source = "custom" if (dynamic_key or "").strip() else "default"
+    source = "custom"
     client = _ai_sync_client(dynamic_key, dynamic_base_url, dynamic_model)
     if client is None:
         return {
@@ -536,7 +536,7 @@ def get_ai_key_status(
             "source": source,
             "provider": config.get("provider", ""),
             "model": config.get("model", ""),
-            "message": "No API key configured.",
+            "message": "No API key provided. Click 'Set API Key' in the app.",
         }
     try:
         resp = client.chat.completions.create(

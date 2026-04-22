@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { X, Key, Eye, EyeOff, CheckCircle, Settings } from 'lucide-react';
+import { X, Key, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 
 export interface ApiKeyConfig {
-  mode: 'default' | 'custom';
   apiKey: string;
   baseUrl: string;
   model: string;
@@ -64,11 +63,20 @@ export const AI_KEY_STORAGE = 'devhealth_ai_config';
 export function loadStoredConfig(): ApiKeyConfig {
   try {
     const raw = localStorage.getItem(AI_KEY_STORAGE);
-    if (raw) return JSON.parse(raw) as ApiKeyConfig;
+    if (raw) {
+      const parsed = JSON.parse(raw) as ApiKeyConfig & { mode?: string };
+      // Migrate old format (had mode field) to new format
+      return {
+        apiKey: parsed.apiKey || '',
+        baseUrl: parsed.baseUrl || '',
+        model: parsed.model || '',
+        provider: parsed.provider || '',
+      };
+    }
   } catch {
     // ignore
   }
-  return { mode: 'default', apiKey: '', baseUrl: '', model: '', provider: '' };
+  return { apiKey: '', baseUrl: '', model: '', provider: '' };
 }
 
 export function saveStoredConfig(cfg: ApiKeyConfig): void {
@@ -82,18 +90,16 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   currentConfig,
 }) => {
   const [apiKey, setApiKey] = useState(currentConfig.apiKey);
-  const [mode, setMode] = useState<'default' | 'custom'>(currentConfig.mode ?? 'default');
   const [showKey, setShowKey] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const preset = resolvePreset(apiKey);
-  const usingDefault = mode === 'default';
+  const hasKey = apiKey.trim().length > 0;
 
   // Sync when modal opens
   useEffect(() => {
     if (isOpen) {
       setApiKey(currentConfig.apiKey);
-      setMode(currentConfig.mode ?? (currentConfig.apiKey ? 'custom' : 'default'));
       setSaved(false);
       setShowKey(false);
     }
@@ -104,13 +110,11 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   const handleSave = () => {
     const trimmed = apiKey.trim();
     const p = resolvePreset(trimmed);
-    const useDefault = mode === 'default';
     const cfg: ApiKeyConfig = {
-      mode,
-      apiKey: useDefault ? '' : trimmed,
-      baseUrl: useDefault ? '' : (p?.baseUrl ?? ''),
-      model: useDefault ? '' : (p?.model ?? ''),
-      provider: useDefault ? '' : (p?.provider ?? (trimmed ? 'custom' : '')),
+      apiKey: trimmed,
+      baseUrl: p?.baseUrl ?? '',
+      model: p?.model ?? '',
+      provider: p?.provider ?? (trimmed ? 'custom' : ''),
     };
     saveStoredConfig(cfg);
     onSave(cfg);
@@ -122,9 +126,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   };
 
   const handleClear = () => {
-    setMode('default');
     setApiKey('');
-    const cfg: ApiKeyConfig = { mode: 'default', apiKey: '', baseUrl: '', model: '', provider: '' };
+    const cfg: ApiKeyConfig = { apiKey: '', baseUrl: '', model: '', provider: '' };
     saveStoredConfig(cfg);
     onSave(cfg);
   };
@@ -168,50 +171,29 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
         <div
           className="rounded-xl px-4 py-3 flex items-center gap-3 text-sm"
           style={
-            usingDefault
-              ? { background: 'rgba(16,163,127,0.12)', border: '1px solid rgba(16,163,127,0.25)' }
-              : preset
+            hasKey && preset
               ? { background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.25)' }
-              : { background: 'rgba(100,100,120,0.12)', border: '1px solid rgba(180,180,200,0.15)' }
+              : hasKey
+              ? { background: 'rgba(100,100,120,0.12)', border: '1px solid rgba(180,180,200,0.15)' }
+              : { background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }
           }
         >
-          <CheckCircle size={15} className={usingDefault ? 'text-emerald-400' : 'text-blue-400'} />
-          <span className={usingDefault ? 'text-emerald-300/80' : 'text-blue-300/80'}>
-            {usingDefault
-              ? 'Using server default key (set in backend .env)'
-              : preset
-              ? <>Auto-detected: <strong className="text-white">{preset.label}</strong> · {preset.model}</>
-              : 'Custom provider — will auto-route'}
+          {hasKey
+            ? <CheckCircle size={15} className="text-blue-400" />
+            : <AlertCircle size={15} className="text-red-400/70" />}
+          <span className={hasKey ? 'text-blue-300/80' : 'text-red-300/70'}>
+            {hasKey && preset
+              ? <><span>Auto-detected: </span><strong className="text-white">{preset.label}</strong><span> · {preset.model}</span></>
+              : hasKey
+              ? 'Custom provider — will auto-route'
+              : 'No key set — AI features require your API key'}
           </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setMode('default')}
-            className={`rounded-xl px-3 py-2 text-sm font-medium border transition-all ${mode === 'default' ? 'text-white' : 'text-blue-200/70'}`}
-            style={mode === 'default'
-              ? { background: 'rgba(16,163,127,0.2)', borderColor: 'rgba(16,163,127,0.4)' }
-              : { background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.1)' }}
-          >
-            Default AI Brain
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('custom')}
-            className={`rounded-xl px-3 py-2 text-sm font-medium border transition-all ${mode === 'custom' ? 'text-white' : 'text-blue-200/70'}`}
-            style={mode === 'custom'
-              ? { background: 'rgba(59,130,246,0.2)', borderColor: 'rgba(59,130,246,0.4)' }
-              : { background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.1)' }}
-          >
-            Use My API Key
-          </button>
         </div>
 
         {/* API Key input */}
         <div>
           <label className="text-blue-200/40 text-xs uppercase tracking-widest block mb-2">
-            API Key <span className="normal-case text-blue-200/25">(leave blank to use server default)</span>
+            Your API Key
           </label>
           <div className="relative">
             <input
@@ -219,7 +201,6 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               type={showKey ? 'text' : 'password'}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              disabled={mode === 'default'}
               placeholder="sk-…  or  sk-ant-…  or  AIza…  or  gsk_…"
               className="w-full rounded-xl px-4 py-3.5 pr-11 text-sm font-mono bg-white/5 border border-white/10 text-white placeholder-blue-300/20 focus:outline-none focus:border-blue-500/40 transition-all"
               autoComplete="off"
@@ -255,13 +236,13 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
         {/* Actions */}
         <div className="flex gap-3 pt-1">
-          {mode === 'custom' && apiKey && (
+          {apiKey && (
             <button
               type="button"
               onClick={handleClear}
               className="px-4 py-3 rounded-xl text-sm text-red-400/60 hover:text-red-400 border border-red-500/10 hover:border-red-500/30 transition-all"
             >
-              Use Default
+              Clear Key
             </button>
           )}
           <button
@@ -295,12 +276,12 @@ export const ApiKeyButton: React.FC<{ onClick: () => void; hasKey: boolean }> = 
     style={
       hasKey
         ? { background: 'rgba(16,163,127,0.12)', border: '1px solid rgba(16,163,127,0.3)', color: '#34d399' }
-        : { background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#93c5fd' }
+        : { background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }
     }
     data-hover
     title="Configure AI API key"
   >
-    <Settings size={12} />
-    {hasKey ? '🔑 Key Set' : '⚙ AI Key'}
+    <Key size={12} />
+    {hasKey ? '🔑 Key Set' : '⚠ Add API Key'}
   </button>
 );

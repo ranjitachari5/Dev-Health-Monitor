@@ -8,7 +8,7 @@ export const ScoreRing: React.FC<ScoreRingProps> = ({ score }) => {
   const [displayScore, setDisplayScore] = useState(0);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     let current = 0;
     const increment = Math.ceil(score / 60);
     interval = setInterval(() => {

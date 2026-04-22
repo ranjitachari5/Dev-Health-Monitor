@@ -6,7 +6,6 @@ interface LandingPageProps {
   onDescribeProject: () => void;
   onViewHistory: () => void;
   onSetApiKey: () => void;
-  onSignIn: () => void;
   aiKeyStatus: AiKeyStatus | null;
 }
 
@@ -22,13 +21,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onDescribeProject,
   onViewHistory,
   onSetApiKey,
-  onSignIn,
   aiKeyStatus,
 }) => {
   const [platform, setPlatform] = useState<string>('');
   const [isScanning, setIsScanning] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
+  const [_mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -106,14 +104,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             data-hover
           >
             Scan History
-          </button>
-          <button
-            type="button"
-            onClick={onSignIn}
-            className="nav-link text-sm font-medium px-4 py-2"
-            data-hover
-          >
-            Sign In
           </button>
         </div>
       </div>

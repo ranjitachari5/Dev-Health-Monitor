@@ -1,9 +1,9 @@
 import type { GithubAnalysis, ScanHistoryItem, ScanResponse } from '../types';
 import { loadStoredConfig } from '../components/ApiKeyModal';
 
-// If VITE_API_URL is empty/unset, use relative paths (Vite proxy handles /api/* → backend)
-// If explicitly set (e.g. production), use that URL
-const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+// Vite proxy handles /api/* → backend at http://127.0.0.1:8000
+// For production set VITE_API_URL in frontend/.env
+const BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
 function formatDetail(errBody: unknown): string {
   if (typeof errBody === 'object' && errBody !== null && 'detail' in errBody) {
@@ -41,9 +41,10 @@ async function get<T>(path: string, headers: Record<string, string> = {}): Promi
   return res.json() as Promise<T>;
 }
 
+/** Always inject the user's stored API key (if any) as request headers. */
 function getAiHeaders(): Record<string, string> {
   const cfg = loadStoredConfig();
-  if (cfg.mode !== 'custom' || !cfg.apiKey.trim()) return {};
+  if (!cfg.apiKey.trim()) return {};
   const headers: Record<string, string> = {
     'X-AI-Api-Key': cfg.apiKey.trim(),
   };

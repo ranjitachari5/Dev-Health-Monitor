@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { AuthPage } from './components/AuthPage';
 import { LandingPage } from './components/LandingPage';
 import { ProjectInput } from './components/ProjectInput';
 import { ScanDashboard } from './components/ScanDashboard';
@@ -8,6 +7,7 @@ import { Squares } from './components/Squares';
 import { ApiKeyModal, loadStoredConfig, type ApiKeyConfig } from './components/ApiKeyModal';
 import { getAiKeyStatus, type AiKeyStatus, runHealthScan, runScan } from './api/client';
 import type { AppView, HealthScanResponse, ScanResponse, ToolResult, ToolStatus } from './types';
+
 function mapHealthToScanResponse(h: HealthScanResponse): ScanResponse {
   const results: ToolResult[] = h.tools.map((t) => {
     let status: ToolStatus = 'missing';
@@ -102,10 +102,8 @@ function useCursor(
 
 /* ─── App component ─────────────────────────────────────────────────── */
 function App() {
-  const [view, setView] = useState<AppView>(() => {
-    const savedUser = localStorage.getItem('devhealth_user');
-    return savedUser ? 'landing' : 'auth';
-  });
+  // Always start at landing — no login required
+  const [view, setView] = useState<AppView>('landing');
   const [scanData, setScanData] = useState<ScanResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,7 +146,7 @@ function App() {
       } catch {
         setAiKeyStatus({
           ok: false,
-          source: apiKeyConfig.mode,
+          source: 'custom',
           provider: '',
           model: '',
           message: 'Unable to verify key status.',
@@ -231,18 +229,8 @@ function App() {
               onDescribeProject={() => setView('input')}
               onViewHistory={() => setView('history')}
               onSetApiKey={() => setIsApiKeyModalOpen(true)}
-              onSignIn={() => setView('auth')}
               aiKeyStatus={aiKeyStatus}
             />
-          )}
-
-          {view === 'auth' && (
-            <div className="absolute inset-0 z-50">
-              <AuthPage
-                onLogin={() => setView('landing')}
-                onBack={() => setView('landing')}
-              />
-            </div>
           )}
 
           {view === 'input' && (
