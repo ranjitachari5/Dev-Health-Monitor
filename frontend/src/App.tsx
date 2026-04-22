@@ -7,6 +7,7 @@ import { Squares } from './components/Squares';
 import { ApiKeyModal, loadStoredConfig, type ApiKeyConfig } from './components/ApiKeyModal';
 import { getAiKeyStatus, type AiKeyStatus, runHealthScan, runScan } from './api/client';
 import type { AppView, HealthScanResponse, ScanResponse, ToolResult, ToolStatus } from './types';
+import { useClickSound } from './utils/useClickSound';
 
 function mapHealthToScanResponse(h: HealthScanResponse): ScanResponse {
   const results: ToolResult[] = h.tools.map((t) => {
@@ -110,6 +111,9 @@ function App() {
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfig>(() => loadStoredConfig());
   const [aiKeyStatus, setAiKeyStatus] = useState<AiKeyStatus | null>(null);
+
+  // Click sounds
+  useClickSound(true);
 
   // Cursor refs
   const dotRef = useRef<HTMLDivElement>(null);
