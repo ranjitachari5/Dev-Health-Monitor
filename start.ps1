@@ -82,16 +82,12 @@ if (-not (Test-Path $envFile)) {
 # --- Frontend setup ------------------------------------------
 Write-Header "Setting up frontend..."
 
-$nodeModules = Join-Path $FRONTEND "node_modules"
-if (-not (Test-Path $nodeModules)) {
-    Write-Step "Installing npm packages (first time - may take a minute)..."
-    Push-Location $FRONTEND
-    npm install --silent
-    Pop-Location
-    Write-Ok "Frontend dependencies installed"
-} else {
-    Write-Ok "node_modules already present"
-}
+Write-Step "Installing / verifying frontend dependencies..."
+Push-Location $FRONTEND
+npm install --silent --no-audit --no-fund
+npm rebuild esbuild --silent
+Pop-Location
+Write-Ok "Frontend dependencies ready"
 
 # --- Launch --------------------------------------------------
 Write-Header "Starting services..."
